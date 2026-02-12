@@ -11,7 +11,7 @@ import {
 } from "@/lib/mongodb"
 
 // GET /api/exams - List all exams
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         const session = await auth()
         const where: Record<string, string> = {}
@@ -87,10 +87,10 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/exams - Create exam
-export async function POST(request: NextRequest) {
+    export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { name, duration } = body
+        const { name, duration, proctoringEnabled } = body
 
         if (!name || !duration) {
             return NextResponse.json(
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
             duration: parseInt(duration),
             totalMarks: 0,
             snapshotInterval: 30,
-            proctoringEnabled: false,
+            proctoringEnabled: typeof proctoringEnabled === "boolean" ? proctoringEnabled : false,
             questions: [],
             createdAt: now,
             updatedAt: now,

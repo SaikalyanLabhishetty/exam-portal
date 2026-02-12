@@ -32,6 +32,7 @@ export default function ExamsPage() {
     const [form, setForm] = useState({
         name: "",
         duration: "60",
+        proctoringEnabled: false,
     })
     const [activeExam, setActiveExam] = useState<Exam | null>(null)
     const [stagedQuestions, setStagedQuestions] = useState<Question[]>([])
@@ -44,6 +45,8 @@ export default function ExamsPage() {
     })
     const [viewIndex, setViewIndex] = useState(0)
     const [isAnimating, setIsAnimating] = useState(false)
+    const [origin, setOrigin] = useState("")
+    const [copiedExamId, setCopiedExamId] = useState<string | null>(null)
 
     const resetQuestionForm = (questionType: "text" | "option" = "text") => {
         setQuestionForm({
@@ -71,6 +74,43 @@ export default function ExamsPage() {
         fetchExams()
     }, [])
 
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setOrigin(window.location.origin)
+        }
+    }, [])
+
+    const getExamUrl = (examId: string) => {
+        const path = `/exam/${examId}`
+        return origin ? `${origin}${path}` : path
+    }
+
+    const handleCopyExamUrl = async (examId: string) => {
+        const examUrl = getExamUrl(examId)
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(examUrl)
+            } else {
+                const textArea = document.createElement("textarea")
+                textArea.value = examUrl
+                textArea.style.position = "fixed"
+                textArea.style.left = "-9999px"
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+                document.execCommand("copy")
+                document.body.removeChild(textArea)
+            }
+
+            setCopiedExamId(examId)
+            setTimeout(() => {
+                setCopiedExamId((current) => (current === examId ? null : current))
+            }, 1500)
+        } catch (error) {
+            console.error("Error copying exam URL:", error)
+        }
+    }
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault()
         setCreating(true)
@@ -81,7 +121,7 @@ export default function ExamsPage() {
                 body: JSON.stringify(form),
             })
             if (res.ok) {
-                setForm({ name: "", duration: "60" })
+                setForm({ name: "", duration: "60", proctoringEnabled: false })
                 setShowModal(false)
                 fetchExams()
             }
@@ -270,6 +310,35 @@ export default function ExamsPage() {
                                         <div className="flex items-center justify-end gap-3">
                                             <button
                                                 type="button"
+                                                onClick={() => handleCopyExamUrl(exam.id)}
+                                                className={copiedExamId === exam.id
+                                                    ? "text-green-600 dark:text-green-400"
+                                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                                                }
+                                                title={copiedExamId === exam.id ? "Copied exam URL" : "Copy exam URL"}
+                                            >
+                                                <svg
+                                                    className="w-5 h-5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={1.5}
+                                                        d="M9 12.75A2.25 2.25 0 0111.25 10.5h7.5A2.25 2.25 0 0121 12.75v7.5a2.25 2.25 0 01-2.25 2.25h-7.5A2.25 2.25 0 019 20.25v-7.5z"
+                                                    />
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={1.5}
+                                                        d="M15 10.5V8.25A2.25 2.25 0 0012.75 6h-7.5A2.25 2.25 0 003 8.25v7.5A2.25 2.25 0 005.25 18H7.5"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={() => openQuestionModal(exam)}
                                                 className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                                                 title="Edit questions"
@@ -344,6 +413,23 @@ export default function ExamsPage() {
                                 className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 required
                             />
+                            <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-zinc-900 dark:text-white">Proctoring</p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Enable webcam checks for this exam.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setForm((prev) => ({ ...prev, proctoringEnabled: !prev.proctoringEnabled }))}
+                                    className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors ${form.proctoringEnabled ? "bg-green-500" : "bg-zinc-400 dark:bg-zinc-600"}`}
+                                    aria-pressed={form.proctoringEnabled}
+                                    aria-label="Toggle proctoring"
+                                >
+                                    <span
+                                        className={`w-5 h-5 bg-white rounded-full transform transition-transform ${form.proctoringEnabled ? "translate-x-5" : "translate-x-0"}`}
+                                    />
+                                </button>
+                            </div>
                             <div className="flex gap-3 justify-end">
                                 <button
                                     type="button"
@@ -557,7 +643,7 @@ export default function ExamsPage() {
                                                                     <div>
                                                                         <div className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6">Question Description</div>
                                                                         <p className="text-3xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight italic">
-                                                                            "{currentQuestion?.question}"
+                                                                            &quot;{currentQuestion?.question}&quot;
                                                                         </p>
                                                                     </div>
 
