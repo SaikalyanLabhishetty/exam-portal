@@ -14,6 +14,9 @@ interface Exam {
     name: string
     examCode: string
     duration: number
+    examDate?: string | null
+    startTime?: string | null
+    endTime?: string | null
     totalMarks: number
     proctoringEnabled: boolean
     createdAt: string
@@ -32,6 +35,9 @@ export default function ExamsPage() {
     const [form, setForm] = useState({
         name: "",
         duration: "60",
+        examDate: "",
+        startTime: "",
+        endTime: "",
         proctoringEnabled: false,
     })
     const [activeExam, setActiveExam] = useState<Exam | null>(null)
@@ -121,7 +127,14 @@ export default function ExamsPage() {
                 body: JSON.stringify(form),
             })
             if (res.ok) {
-                setForm({ name: "", duration: "60", proctoringEnabled: false })
+                setForm({
+                    name: "",
+                    duration: "60",
+                    examDate: "",
+                    startTime: "",
+                    endTime: "",
+                    proctoringEnabled: false,
+                })
                 setShowModal(false)
                 fetchExams()
             }
@@ -413,6 +426,34 @@ export default function ExamsPage() {
                                 className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 required
                             />
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Exam date (optional)</label>
+                                <input
+                                    type="date"
+                                    value={form.examDate}
+                                    onChange={(e) => setForm({ ...form, examDate: e.target.value })}
+                                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Exam time (optional)</label>
+                                <div className="flex gap-3">
+                                    <input
+                                        type="time"
+                                        value={form.startTime}
+                                        onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                                        aria-label="Exam start time"
+                                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    />
+                                    <input
+                                        type="time"
+                                        value={form.endTime}
+                                        onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                                        aria-label="Exam end time"
+                                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    />
+                                </div>
+                            </div>
                             <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl">
                                 <div className="space-y-1">
                                     <p className="text-sm font-semibold text-zinc-900 dark:text-white">Proctoring</p>

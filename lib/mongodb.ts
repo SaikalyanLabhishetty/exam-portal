@@ -35,6 +35,9 @@ export type ExamDocument = {
     name: string
     examCode: string
     duration: number
+    examDate?: string | null
+    startTime?: string | null
+    endTime?: string | null
     totalMarks: number
     snapshotInterval: number
     proctoringEnabled: boolean

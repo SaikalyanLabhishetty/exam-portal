@@ -90,7 +90,7 @@ export async function GET() {
     export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { name, duration, proctoringEnabled } = body
+        const { name, duration, proctoringEnabled, examDate, startTime, endTime } = body
 
         if (!name || !duration) {
             return NextResponse.json(
@@ -98,6 +98,13 @@ export async function GET() {
                 { status: 400 }
             )
         }
+
+        const normalizedExamDate =
+            typeof examDate === "string" && examDate.trim() ? examDate : null
+        const normalizedStartTime =
+            typeof startTime === "string" && startTime.trim() ? startTime : null
+        const normalizedEndTime =
+            typeof endTime === "string" && endTime.trim() ? endTime : null
 
         const db = await getDb()
         const session = await auth()
@@ -145,6 +152,9 @@ export async function GET() {
             name,
             examCode,
             duration: parseInt(duration),
+            ...(normalizedExamDate ? { examDate: normalizedExamDate } : {}),
+            ...(normalizedStartTime ? { startTime: normalizedStartTime } : {}),
+            ...(normalizedEndTime ? { endTime: normalizedEndTime } : {}),
             totalMarks: 0,
             snapshotInterval: 30,
             proctoringEnabled: typeof proctoringEnabled === "boolean" ? proctoringEnabled : false,

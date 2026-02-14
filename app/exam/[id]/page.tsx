@@ -53,6 +53,12 @@ type FullscreenRecoveryState = {
     message: string
 } | null
 
+type WarningEvent = {
+    reason: string
+    message: string
+    at: string
+}
+
 const ESC_LONG_PRESS_MS = 700
 
 const createInitialEscapePressState = (): EscapePressState => ({
@@ -83,6 +89,7 @@ export default function ExamAccessPage() {
     const [currentIndex, setCurrentIndex] = useState(0)
     const [violationCount, setViolationCount] = useState(0)
     const [violationMsg, setViolationMsg] = useState("")
+    const [warnings, setWarnings] = useState<WarningEvent[]>([])
     const lastViolationRef = useRef<{ reason: string; at: number }>({ reason: "", at: 0 })
     const isReEnteringFullscreenRef = useRef(false)
     const escapePressRef = useRef<EscapePressState>(createInitialEscapePressState())
@@ -147,6 +154,7 @@ export default function ExamAccessPage() {
         lastViolationRef.current = { reason, at: now }
         setViolationCount((prev) => prev + 1)
         setViolationMsg(message)
+        setWarnings((prev) => [...prev, { reason, message, at: new Date(now).toISOString() }])
     }
 
     const lockExamKeyboard = async () => {
@@ -173,6 +181,7 @@ export default function ExamAccessPage() {
             await lockExamKeyboard()
             setViolationCount(0)
             setViolationMsg("")
+            setWarnings([])
             lastViolationRef.current = { reason: "", at: 0 }
             escapePressRef.current = createInitialEscapePressState()
             fullscreenRecoveryRef.current = null
@@ -451,6 +460,7 @@ export default function ExamAccessPage() {
                     questionIndex: Number(questionIndex),
                     answer,
                 })),
+                warnings,
             }
             const res = await fetch(`/api/exams/${accessData.exam.id}/answers`, {
                 method: "POST",

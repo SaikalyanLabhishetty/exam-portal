@@ -54,6 +54,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
         const {
             name,
             duration,
+            examDate,
+            startTime,
+            endTime,
             totalMarks,
             snapshotInterval,
             proctoringEnabled,
@@ -67,6 +70,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
                 $set: {
                     ...(name && { name }),
                     ...(duration && { duration: parseInt(duration) }),
+                    ...(examDate !== undefined && { examDate: examDate ? String(examDate) : null }),
+                    ...(startTime !== undefined && { startTime: startTime ? String(startTime) : null }),
+                    ...(endTime !== undefined && { endTime: endTime ? String(endTime) : null }),
                     ...(totalMarks && { totalMarks: parseInt(totalMarks) }),
                     ...(snapshotInterval && {
                         snapshotInterval: parseInt(snapshotInterval),
