@@ -11,6 +11,8 @@ type AccessBody = {
     studentEmail?: string
 }
 
+type AttemptStatus = "pending" | "completed"
+
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as AccessBody
@@ -48,6 +50,57 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        const existingAttempt = await db.collection("answers").findOne({
+            examId: exam.uid,
+            studentId: student.uid,
+        })
+
+        if (existingAttempt) {
+            const derivedStatus: AttemptStatus =
+                existingAttempt.status === "completed" || existingAttempt.status === "pending"
+                    ? existingAttempt.status
+                    : existingAttempt.submittedAt
+                      ? "completed"
+                      : "pending"
+
+            if (derivedStatus === "completed") {
+                return NextResponse.json(
+                    { error: "Exam already completed for this student." },
+                    { status: 409 }
+                )
+            }
+        }
+
+        let attempt: {
+            status: AttemptStatus
+            startedAt: string | null
+            answers: { questionIndex: number; answer: string }[]
+            currentIndex: number
+            remainingSeconds: number | null
+        } | null = null
+
+        if (existingAttempt) {
+            const rawStartedAt = existingAttempt.startedAt ?? existingAttempt.createdAt ?? null
+            const startedAtDate = rawStartedAt ? new Date(rawStartedAt) : null
+            const startedAtValid =
+                startedAtDate && !Number.isNaN(startedAtDate.getTime()) ? startedAtDate : null
+            const elapsedSeconds = startedAtValid
+                ? Math.floor((Date.now() - startedAtValid.getTime()) / 1000)
+                : 0
+            const remainingSeconds = Math.max(exam.duration * 60 - elapsedSeconds, 0)
+
+            attempt = {
+                status: "pending",
+                startedAt: startedAtValid ? startedAtValid.toISOString() : null,
+                answers: Array.isArray(existingAttempt.answers) ? existingAttempt.answers : [],
+                currentIndex:
+                    typeof existingAttempt.currentIndex === "number"
+                        ? existingAttempt.currentIndex
+                        : 0,
+                remainingSeconds,
+            }
+        }
+
         return NextResponse.json({
             exam: {
                 id: exam.uid,
@@ -67,6 +120,7 @@ export async function POST(request: NextRequest) {
                 questionType: question.questionType,
                 options: question.options ?? [],
             })),
+            attempt,
         })
     } catch (error) {
         console.error("Error validating exam access:", error)

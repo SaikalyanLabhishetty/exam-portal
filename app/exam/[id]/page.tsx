@@ -9,6 +9,16 @@ type ExamQuestion = {
     options: string[]
 }
 
+type AttemptStatus = "pending" | "completed"
+
+type AttemptInfo = {
+    status: AttemptStatus
+    startedAt: string | null
+    answers: { questionIndex: number; answer: string }[]
+    currentIndex: number
+    remainingSeconds: number | null
+}
+
 type AccessResponse = {
     exam: {
         id: string
@@ -28,6 +38,7 @@ type AccessResponse = {
         year?: string
     }
     questions: ExamQuestion[]
+    attempt: AttemptInfo | null
 }
 
 type Phase = "access" | "overview" | "exam" | "submitted"
@@ -90,13 +101,35 @@ export default function ExamAccessPage() {
     const [violationCount, setViolationCount] = useState(0)
     const [violationMsg, setViolationMsg] = useState("")
     const [warnings, setWarnings] = useState<WarningEvent[]>([])
+    const [attempt, setAttempt] = useState<AttemptInfo | null>(null)
     const lastViolationRef = useRef<{ reason: string; at: number }>({ reason: "", at: 0 })
     const isReEnteringFullscreenRef = useRef(false)
     const escapePressRef = useRef<EscapePressState>(createInitialEscapePressState())
     const fullscreenRecoveryRef = useRef<FullscreenRecoveryState>(null)
     const fullscreenRetryTimerRef = useRef<number | null>(null)
+    const progressSaveTimerRef = useRef<number | null>(null)
 
     const totalSeconds = useMemo(() => (accessData ? accessData.exam.duration * 60 : null), [accessData])
+
+    const buildAnswerEntries = (answerState: Record<number, string>) =>
+        Object.entries(answerState).map(([questionIndex, answer]) => ({
+            questionIndex: Number(questionIndex),
+            answer,
+        }))
+
+    const toAnswerMap = (answerEntries: { questionIndex: number; answer: string }[]) =>
+        answerEntries.reduce<Record<number, string>>((acc, entry) => {
+            acc[entry.questionIndex] = entry.answer
+            return acc
+        }, {})
+
+    const computeRemainingSeconds = (startedAt: string | null, total: number) => {
+        if (!startedAt) return total
+        const startedAtMs = new Date(startedAt).getTime()
+        if (Number.isNaN(startedAtMs)) return total
+        const elapsedSeconds = Math.floor((Date.now() - startedAtMs) / 1000)
+        return Math.max(total - elapsedSeconds, 0)
+    }
 
     const handleSubmitAccess = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -106,6 +139,13 @@ export default function ExamAccessPage() {
         setError("")
         setPhase("access")
         setAccessData(null)
+        setAttempt(null)
+        setAnswers({})
+        setCurrentIndex(0)
+        setTimeLeft(null)
+        setViolationCount(0)
+        setViolationMsg("")
+        setWarnings([])
 
         try {
             const response = await fetch("/api/exams/access", {
@@ -126,7 +166,22 @@ export default function ExamAccessPage() {
                 return
             }
 
+            const nextAttempt = data.attempt ?? null
             setAccessData(data)
+            setAttempt(nextAttempt)
+            if (nextAttempt?.status === "pending") {
+                const questionTotal = data.questions?.length ?? 0
+                const savedAnswers = toAnswerMap(nextAttempt.answers ?? [])
+                setAnswers(savedAnswers)
+                const nextIndex =
+                    typeof nextAttempt.currentIndex === "number"
+                        ? Math.min(Math.max(nextAttempt.currentIndex, 0), Math.max(questionTotal - 1, 0))
+                        : 0
+                setCurrentIndex(nextIndex)
+            } else {
+                setAnswers({})
+                setCurrentIndex(0)
+            }
             setPhase("overview")
         } catch (apiError) {
             console.error("Exam access error:", apiError)
@@ -173,29 +228,92 @@ export default function ExamAccessPage() {
         keyboard.unlock()
     }
 
+    const startOrResumeAttempt = async (nextIndex: number) => {
+        if (!accessData) return null
+        const payload = {
+            studentId: accessData.student.id,
+            answers: buildAnswerEntries(answers),
+            warnings,
+            status: "pending" as const,
+            currentIndex: nextIndex,
+        }
+        const res = await fetch(`/api/exams/${accessData.exam.id}/answers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.error || "Failed to start exam session.")
+        }
+
+        const data = await res.json().catch(() => ({}))
+        return data
+    }
+
     const handleStartExam = async () => {
         if (!accessData) return
+        setStartError("")
+        const nextIndex =
+            attempt?.status === "pending"
+                ? Math.min(Math.max(attempt.currentIndex ?? 0, 0), Math.max(accessData.questions.length - 1, 0))
+                : 0
+
         try {
-            setStartError("")
             await requestFullscreen()
             await lockExamKeyboard()
-            setViolationCount(0)
-            setViolationMsg("")
-            setWarnings([])
-            lastViolationRef.current = { reason: "", at: 0 }
-            escapePressRef.current = createInitialEscapePressState()
-            fullscreenRecoveryRef.current = null
-            if (fullscreenRetryTimerRef.current !== null) {
-                window.clearTimeout(fullscreenRetryTimerRef.current)
-                fullscreenRetryTimerRef.current = null
-            }
-            setPhase("exam")
-            setTimeLeft(accessData.exam.duration * 60)
-            setCurrentIndex(0)
         } catch (err) {
             console.error("Fullscreen error:", err)
             setStartError("Please allow fullscreen to start the exam.")
+            return
         }
+
+        let startResponse: { startedAt?: string } | null = null
+        try {
+            startResponse = await startOrResumeAttempt(nextIndex)
+        } catch (err) {
+            console.error("Start exam error:", err)
+            const message = err instanceof Error ? err.message : "Unable to start the exam."
+            setStartError(message)
+            unlockExamKeyboard()
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => { })
+            }
+            return
+        }
+
+        setViolationCount(0)
+        setViolationMsg("")
+        setWarnings([])
+        lastViolationRef.current = { reason: "", at: 0 }
+        escapePressRef.current = createInitialEscapePressState()
+        fullscreenRecoveryRef.current = null
+        if (fullscreenRetryTimerRef.current !== null) {
+            window.clearTimeout(fullscreenRetryTimerRef.current)
+            fullscreenRetryTimerRef.current = null
+        }
+        setPhase("exam")
+        const total = accessData.exam.duration * 60
+        const startedAt =
+            typeof startResponse?.startedAt === "string"
+                ? startResponse.startedAt
+                : attempt?.startedAt ?? null
+        const remainingSeconds =
+            startedAt !== null
+                ? computeRemainingSeconds(startedAt, total)
+                : typeof attempt?.remainingSeconds === "number"
+                  ? attempt.remainingSeconds
+                  : total
+        setTimeLeft(remainingSeconds)
+        setCurrentIndex(nextIndex)
+        setAttempt((prev) => ({
+            status: "pending",
+            startedAt: startedAt,
+            answers: prev?.answers ?? [],
+            currentIndex: nextIndex,
+            remainingSeconds: null,
+        }))
     }
 
     useEffect(() => {
@@ -445,6 +563,38 @@ export default function ExamAccessPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeLeft, phase])
 
+    useEffect(() => {
+        if (phase !== "exam" || !accessData || submitting) return
+
+        if (progressSaveTimerRef.current !== null) {
+            window.clearTimeout(progressSaveTimerRef.current)
+        }
+
+        progressSaveTimerRef.current = window.setTimeout(() => {
+            const payload = {
+                studentId: accessData.student.id,
+                answers: buildAnswerEntries(answers),
+                warnings,
+                status: "pending" as const,
+                currentIndex,
+            }
+            fetch(`/api/exams/${accessData.exam.id}/answers`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            }).catch((err) => {
+                console.error("Auto-save error:", err)
+            })
+        }, 600)
+
+        return () => {
+            if (progressSaveTimerRef.current !== null) {
+                window.clearTimeout(progressSaveTimerRef.current)
+                progressSaveTimerRef.current = null
+            }
+        }
+    }, [phase, accessData, submitting, answers, currentIndex, warnings])
+
     const handleAnswerChange = (index: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [index]: value }))
     }
@@ -456,11 +606,10 @@ export default function ExamAccessPage() {
         try {
             const payload = {
                 studentId: accessData.student.id,
-                answers: Object.entries(answers).map(([questionIndex, answer]) => ({
-                    questionIndex: Number(questionIndex),
-                    answer,
-                })),
+                answers: buildAnswerEntries(answers),
                 warnings,
+                status: "completed" as const,
+                currentIndex,
             }
             const res = await fetch(`/api/exams/${accessData.exam.id}/answers`, {
                 method: "POST",
@@ -474,6 +623,14 @@ export default function ExamAccessPage() {
             } else {
                 setSubmitMsg("Answers saved. You may close the exam.")
                 setPhase("submitted")
+                setAttempt((prev) =>
+                    prev
+                        ? {
+                            ...prev,
+                            status: "completed",
+                        }
+                        : prev
+                )
                 unlockExamKeyboard()
                 if (document.fullscreenElement) {
                     document.exitFullscreen().catch(() => { })
@@ -505,6 +662,12 @@ export default function ExamAccessPage() {
     const questionCount = accessData?.questions.length ?? 0
     const currentQuestion = accessData?.questions[currentIndex]
     const isLastQuestion = questionCount > 0 && currentIndex === questionCount - 1
+    const resumeRemainingSeconds =
+        attempt?.status === "pending" && totalSeconds
+            ? typeof attempt.remainingSeconds === "number"
+                ? attempt.remainingSeconds
+                : computeRemainingSeconds(attempt.startedAt, totalSeconds)
+            : null
 
     if (!examId) {
         return (
@@ -602,6 +765,22 @@ export default function ExamAccessPage() {
                             </div>
                         </div>
 
+                        {attempt?.status === "pending" && (
+                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-sm text-amber-200 space-y-2">
+                                <p className="font-semibold">Saved attempt found</p>
+                                <p>
+                                    You have an in-progress exam. Resume to continue from question{" "}
+                                    <span className="font-semibold">{(attempt.currentIndex ?? 0) + 1}</span>.
+                                </p>
+                                <p>
+                                    Time remaining:{" "}
+                                    <span className="font-semibold">
+                                        {formatTime(resumeRemainingSeconds)}
+                                    </span>
+                                </p>
+                            </div>
+                        )}
+
                         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
                             <h3 className="text-lg font-semibold">Exam Instructions</h3>
                             <ul className="space-y-2 text-sm text-zinc-300 list-disc list-inside">
@@ -620,7 +799,7 @@ export default function ExamAccessPage() {
                             onClick={handleStartExam}
                             className="w-full md:w-auto px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 font-semibold"
                         >
-                            Start Exam
+                            {attempt?.status === "pending" ? "Resume Exam" : "Start Exam"}
                         </button>
                     </div>
                 )}
