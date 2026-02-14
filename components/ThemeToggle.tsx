@@ -11,6 +11,30 @@ const ThemeToggle: React.FC = () => {
         setMounted(true)
     }, [])
 
+    const applyTheme = React.useCallback((nextTheme: "dark" | "light") => {
+        if (typeof document === "undefined") return
+
+        const root = document.documentElement
+        root.classList.toggle("dark", nextTheme === "dark")
+        root.style.colorScheme = nextTheme
+        try {
+            localStorage.setItem("theme", nextTheme)
+        } catch {
+            // Ignore storage errors (private mode, blocked storage, etc.).
+        }
+    }, [])
+
+    React.useEffect(() => {
+        if (!mounted) return
+        applyTheme(theme)
+    }, [applyTheme, mounted, theme])
+
+    const handleToggle = () => {
+        const nextTheme = theme === "dark" ? "light" : "dark"
+        applyTheme(nextTheme)
+        toggleTheme()
+    }
+
     if (!mounted) {
         return (
             <div className="p-3 bg-zinc-800 rounded-xl border border-zinc-700 w-[46px] h-[46px]" />
@@ -19,9 +43,11 @@ const ThemeToggle: React.FC = () => {
 
     return (
         <button
-            onClick={toggleTheme}
-            className="p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-all border border-zinc-200 dark:border-zinc-700 shadow-xl group"
+            type="button"
+            onClick={handleToggle}
+            className="p-3 bg-white text-black dark:bg-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-all border border-zinc-200 dark:border-zinc-700 shadow-xl group"
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            aria-pressed={theme === "dark"}
         >
             {theme === "dark" ? (
                 // Sun Icon
