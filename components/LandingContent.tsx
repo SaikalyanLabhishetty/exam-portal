@@ -177,7 +177,7 @@ export default function LandingContent({ primaryLink, heroLink }: LandingContent
                             Next-Gen Examination Suite
                         </div>
 
-                        <h1 className="hero-title hero-title-neon text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95]">
+                        <h1 className="hero-title hero-title-neon font-young-serif text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[0.95]">
                             Powering Next-Gen Digital Assessments
                         </h1>
 
@@ -445,11 +445,6 @@ export default function LandingContent({ primaryLink, heroLink }: LandingContent
             </footer>
 
             <style jsx>{`
-                .hero-title {
-                    font-family: var(--font-young-serif), serif;
-                    font-weight: 400;
-                }
-
                 .hero-title-neon {
                     color: rgb(255, 255, 255);
                     text-shadow:
