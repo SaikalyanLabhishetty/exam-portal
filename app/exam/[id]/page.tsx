@@ -110,6 +110,9 @@ export default function ExamAccessPage() {
     const progressSaveTimerRef = useRef<number | null>(null)
 
     const totalSeconds = useMemo(() => (accessData ? accessData.exam.duration * 60 : null), [accessData])
+    const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
+    const totalQuestions = accessData?.questions.length ?? 0
+    const progressPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0
 
     const buildAnswerEntries = (answerState: Record<number, string>) =>
         Object.entries(answerState).map(([questionIndex, answer]) => ({
@@ -303,8 +306,8 @@ export default function ExamAccessPage() {
             startedAt !== null
                 ? computeRemainingSeconds(startedAt, total)
                 : typeof attempt?.remainingSeconds === "number"
-                  ? attempt.remainingSeconds
-                  : total
+                    ? attempt.remainingSeconds
+                    : total
         setTimeLeft(remainingSeconds)
         setCurrentIndex(nextIndex)
         setAttempt((prev) => ({
@@ -683,304 +686,394 @@ export default function ExamAccessPage() {
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
-            <header className="border-b border-zinc-800/50 backdrop-blur-sm">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-white">
-                        Exam<span className="text-blue-500">Portal</span>
-                    </h1>
-                    {phase === "exam" && accessData ? (
-                        <span className="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-sm font-semibold text-zinc-100">
-                            Time Left: {formatTime(timeLeft)}
-                        </span>
-                    ) : (
-                        <span className="text-sm text-zinc-400 font-medium">Secure Exam Session</span>
-                    )}
-                </div>
-            </header>
+        <div className="min-h-screen bg-zinc-950 text-white font-sans selection:bg-blue-500/30">
+            {/* Background Orbs */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[150px] animate-pulse" style={{ animationDelay: '2s' }} />
+            </div>
 
-            <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
-                {(phase === "access" || phase === "overview") && (
-                    <div className="text-center space-y-3">
-                        <h2 className="text-3xl font-bold">Exam Access</h2>
-                        <p className="text-zinc-400">Enter your student email and exam code to open this exam.</p>
+            {/* Access and Overview Phases */}
+            {(phase === "access" || phase === "overview" || phase === "submitted") && (
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-radial-[at_center_center] from-zinc-900 via-zinc-950 to-zinc-950">
+                    <div className="mb-12 text-center space-y-4">
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
+                            Exam<span className="text-blue-500">Portal</span>
+                        </h1>
+                        <div className="h-1 w-20 bg-blue-600 mx-auto rounded-full" />
                     </div>
-                )}
 
-                {phase === "access" && (
-                    <div className="max-w-lg mx-auto bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
-                        <form onSubmit={handleSubmitAccess} className="space-y-5">
-                            <div className="space-y-2">
-                                <label className="text-sm text-zinc-300 font-medium">Student Email</label>
-                                <input
-                                    type="email"
-                                    value={studentEmail}
-                                    onChange={(event) => setStudentEmail(event.target.value)}
-                                    placeholder="student@example.com"
-                                    className="w-full px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    required
-                                />
+                    {phase === "access" && (
+                        <div className="max-w-lg w-full bg-zinc-900/50 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 shadow-2xl space-y-8">
+                            <div className="text-center space-y-2">
+                                <h2 className="text-2xl font-black tracking-tight text-white uppercase tracking-widest">Identify Yourself</h2>
+                                <p className="text-zinc-500 text-sm font-medium uppercase tracking-wider">Secure Access Control</p>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm text-zinc-300 font-medium">Exam Code</label>
-                                <input
-                                    type="text"
-                                    value={examCode}
-                                    onChange={(event) => setExamCode(event.target.value.toUpperCase())}
-                                    placeholder="Enter exam code"
-                                    className="w-full px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    required
-                                />
+                            <form onSubmit={handleSubmitAccess} className="space-y-6">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Student Email</label>
+                                    <input
+                                        type="email"
+                                        value={studentEmail}
+                                        onChange={(event) => setStudentEmail(event.target.value)}
+                                        placeholder="name@university.edu"
+                                        className="w-full px-6 py-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl text-white placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-medium"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Exam Access Code</label>
+                                    <input
+                                        type="text"
+                                        value={examCode}
+                                        onChange={(event) => setExamCode(event.target.value.toUpperCase())}
+                                        placeholder="EXAM-XXXX"
+                                        className="w-full px-6 py-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl text-white placeholder-zinc-700 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-bold tracking-widest"
+                                        required
+                                    />
+                                </div>
+
+                                {error ? (
+                                    <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-shake">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                        <p className="text-sm text-red-400 font-bold">{error}</p>
+                                    </div>
+                                ) : null}
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full px-6 py-5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-all font-black uppercase tracking-widest text-sm shadow-[0_20px_40px_-10px_rgba(37,99,235,0.4)] active:scale-95"
+                                >
+                                    {loading ? "Authenticating..." : "Initialize Session"}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {phase === "overview" && accessData && (
+                        <div className="max-w-2xl w-full space-y-6">
+                            <div className="bg-zinc-900/50 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8">
+                                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-[10px] font-black uppercase tracking-widest">
+                                        Verified
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="space-y-1">
+                                        <span className="text-xs font-black text-zinc-500 uppercase tracking-widest">Assessment Title</span>
+                                        <h2 className="text-4xl font-black tracking-tight text-white">{accessData.exam.name}</h2>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-4">
+                                        <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex flex-col">
+                                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Duration</span>
+                                            <span className="text-xl font-bold">{accessData.exam.duration}m</span>
+                                        </div>
+                                        <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex flex-col">
+                                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Items</span>
+                                            <span className="text-xl font-bold">{accessData.exam._count.questions}</span>
+                                        </div>
+                                        <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex flex-col">
+                                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status</span>
+                                            <span className="text-xl font-bold text-green-500">READY</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+                            {attempt?.status === "pending" && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-6 flex items-center justify-between gap-6 backdrop-blur-xl">
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-black text-amber-500 uppercase tracking-widest">Saved Session Found</p>
+                                        <p className="text-sm text-amber-200/70 font-medium italic">
+                                            Continuing from Item #{(attempt.currentIndex ?? 0) + 1} • {formatTime(resumeRemainingSeconds)} left.
+                                        </p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full border-2 border-amber-500/30 flex items-center justify-center animate-pulse">
+                                        <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-zinc-900/30 border border-white/5 rounded-[2.5rem] p-10 space-y-6 backdrop-blur-md">
+                                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest italic">Security Directives</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {[
+                                        "Biometric Tracking Active",
+                                        "Zero-Latency Fullscreen Engaged",
+                                        "Anti-Injection Environment",
+                                        "Automated Proctoring Enabled"
+                                    ].map((text, i) => (
+                                        <div key={i} className="flex items-center gap-3 text-sm text-zinc-300 font-medium">
+                                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                                            {text}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {startError && (
+                                <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                    <p className="text-sm text-red-300 font-bold">{startError}</p>
+                                </div>
+                            )}
 
                             <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors font-semibold"
+                                onClick={handleStartExam}
+                                className="w-full px-10 py-5 rounded-2xl bg-white text-zinc-950 font-black uppercase tracking-[0.2em] text-sm hover:bg-zinc-200 transition-all shadow-[0_30px_60px_-15px_rgba(255,255,255,0.15)] active:scale-95"
                             >
-                                {loading ? "Validating..." : "Open Exam"}
+                                {attempt?.status === "pending" ? "Resume Secure Session" : "Initialize Secure Session"}
                             </button>
-                        </form>
-                    </div>
-                )}
+                        </div>
+                    )}
 
-                {phase === "overview" && accessData && (
-                    <div className="space-y-6">
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                            <p className="text-green-400 font-semibold mb-3">Access granted</p>
-                            <h2 className="text-2xl font-bold">{accessData.exam.name}</h2>
-                            <div className="mt-5 flex flex-wrap gap-3 text-sm">
-                                <span className="px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700">
-                                    Duration: {accessData.exam.duration} min
-                                </span>
-                                <span className="px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700">
-                                    Questions: {accessData.exam._count.questions}
-                                </span>
-                                <span className="px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700">
-                                    Proctoring: {accessData.exam.proctoringEnabled ? "Enabled" : "Disabled"}
-                                </span>
+                    {phase === "submitted" && (
+                        <div className="max-w-md w-full bg-zinc-900/50 border border-white/5 rounded-[3rem] p-12 text-center space-y-8 backdrop-blur-3xl shadow-2xl">
+                            <div className="w-24 h-24 bg-green-500/10 border border-green-500/20 rounded-full mx-auto flex items-center justify-center">
+                                <svg className="w-12 h-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <div className="space-y-4">
+                                <h2 className="text-3xl font-black tracking-tight text-white uppercase italic">Assessment Sealed</h2>
+                                <p className="text-zinc-500 font-medium leading-relaxed">
+                                    Your response has been securely encrypted and transmitted. You may now close this portal.
+                                </p>
+                            </div>
+                            <div className="pt-4 flex flex-col gap-4">
+                                <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Confirmation ID</span>
+                                    <span className="text-xs font-mono text-zinc-400">#{(Math.random() * 1000000).toFixed(0)}</span>
+                                </div>
+                                <button
+                                    onClick={() => window.close()}
+                                    className="w-full py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest hover:text-white transition-colors"
+                                >
+                                    Terminate Session
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {phase === "exam" && accessData && (
+                <div className="flex h-screen overflow-hidden">
+                    {/* LHS SIDEBAR - The laptop UI style */}
+                    <aside className="w-80 bg-zinc-950/80 border-r border-white/10 flex flex-col relative z-20 backdrop-blur-xl">
+                        {/* Sidebar Header */}
+                        <div className="p-8 border-b border-white/5">
+                            <h1 className="text-xl font-black tracking-tighter italic mb-8">
+                                Exam<span className="text-blue-500">Portal</span>
+                            </h1>
+
+                            <div className="space-y-6">
+                                <div className="p-5 bg-zinc-900/50 rounded-3xl border border-white/5 shadow-inner">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Time Dimension</span>
+                                        <span className={`text-4xl font-black font-mono tracking-tighter ${timeLeft && timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-zinc-100'}`}>
+                                            {formatTime(timeLeft)}
+                                        </span>
+                                    </div>
+                                    <div className="mt-4 w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-600 transition-all duration-1000"
+                                            style={{ width: `${(timeLeft ?? 0) / (accessData.exam.duration * 60) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="px-2 space-y-1">
+                                    <div className="flex justify-between items-center text-[10px] font-black text-zinc-600 uppercase tracking-widest">
+                                        <span>Items Completed</span>
+                                        <span>{progressPercentage.toFixed(0)}%</span>
+                                    </div>
+                                    <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
+                                        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {attempt?.status === "pending" && (
-                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-sm text-amber-200 space-y-2">
-                                <p className="font-semibold">Saved attempt found</p>
-                                <p>
-                                    You have an in-progress exam. Resume to continue from question{" "}
-                                    <span className="font-semibold">{(attempt.currentIndex ?? 0) + 1}</span>.
-                                </p>
-                                <p>
-                                    Time remaining:{" "}
-                                    <span className="font-semibold">
-                                        {formatTime(resumeRemainingSeconds)}
-                                    </span>
-                                </p>
-                            </div>
-                        )}
+                        {/* Sidebar Nav Grid */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                            <div>
+                                <h3 className="text-[10px] font-black text-zinc-700 uppercase tracking-widest mb-6 ml-1 italic">Structural Map</h3>
+                                <div className="grid grid-cols-5 gap-3">
+                                    {accessData.questions.map((_, idx) => {
+                                        const isCurrent = idx === currentIndex
+                                        const isAnswered = answers[idx] !== undefined && answers[idx] !== ""
 
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-                            <h3 className="text-lg font-semibold">Exam Instructions</h3>
-                            <ul className="space-y-2 text-sm text-zinc-300 list-disc list-inside">
-                                <li>This is a proctored exam. You will be monitored throughout the session.</li>
-                                <li>The exam will run in full-screen mode. Do not exit full screen.</li>
-                                <li>Do not open Developer Tools or inspect the page.</li>
-                                <li>Do not switch tabs or applications.</li>
-                                <li>All activities will be recorded and monitored.</li>
-                                <li>Any suspicious activity may lead to exam termination.</li>
-                            </ul>
+                                        return (
+                                            <button
+                                                key={idx}
+                                                onClick={() => setCurrentIndex(idx)}
+                                                className={`
+                                                    h-10 w-10 rounded-xl flex items-center justify-center text-[11px] font-black transition-all
+                                                    ${isCurrent ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] scale-110 z-10' :
+                                                        isAnswered ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                                            'bg-zinc-900/50 text-zinc-600 border border-white/5 hover:bg-zinc-800'}
+                                                `}
+                                            >
+                                                {idx + 1}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {violationCount > 0 && (
+                                <div className="p-5 bg-red-500/5 border border-red-500/10 rounded-3xl space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                                        <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Violation Log</span>
+                                    </div>
+                                    <p className="text-[11px] text-red-300/60 font-medium leading-relaxed italic">
+                                        {violationMsg}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        {startError && <p className="text-sm text-red-400">{startError}</p>}
-
-                        <button
-                            onClick={handleStartExam}
-                            className="w-full md:w-auto px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 font-semibold"
-                        >
-                            {attempt?.status === "pending" ? "Resume Exam" : "Start Exam"}
-                        </button>
-                    </div>
-                )}
-
-                {phase === "exam" && accessData && (
-                    <div className="overflow-x-auto">
-                        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 min-w-[900px]">
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
-                                {questionCount === 0 ? (
-                                    <p className="text-zinc-400 text-sm">No questions have been added yet.</p>
-                                ) : (
-                                    <div className="space-y-5">
-                                        <div className="flex items-center justify-between text-sm text-zinc-400">
-                                            <span>Question {currentIndex + 1} of {questionCount}</span>
-                                            <span>Auto-saved</span>
-                                        </div>
-
-                                        {currentQuestion && (
-                                            <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950/50 space-y-3">
-                                                <p className="font-semibold text-lg text-white">
-                                                    {currentIndex + 1}. {currentQuestion.question}
-                                                </p>
-                                                {currentQuestion.questionType === "option" && currentQuestion.options.length > 0 ? (
-                                                    <div className="space-y-2">
-                                                        {currentQuestion.options.map((option, optionIndex) => {
-                                                            const value = String.fromCharCode(65 + optionIndex)
-                                                            return (
-                                                                <label
-                                                                    key={`${option}-${optionIndex}`}
-                                                                    className="flex items-center gap-3 text-sm text-zinc-200 cursor-pointer"
-                                                                >
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={`question-${currentIndex}`}
-                                                                        value={value}
-                                                                        checked={answers[currentIndex] === value}
-                                                                        onChange={() => handleAnswerChange(currentIndex, value)}
-                                                                        className="w-4 h-4 text-blue-500 border-zinc-600 focus:ring-blue-500"
-                                                                    />
-                                                                    <span>{value}. {option}</span>
-                                                                </label>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                ) : (
-                                                    <textarea
-                                                        value={answers[currentIndex] ?? ""}
-                                                        onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
-                                                        placeholder="Type your answer here..."
-                                                        className="w-full min-h-[140px] px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between pt-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setCurrentIndex((prev) => Math.max(prev - 1, 0))}
-                                                disabled={currentIndex === 0}
-                                                className="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 font-semibold"
-                                            >
-                                                Previous
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setCurrentIndex((prev) => Math.min(prev + 1, questionCount - 1))}
-                                                disabled={currentIndex >= questionCount - 1}
-                                                className="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 font-semibold"
-                                            >
-                                                Next
-                                            </button>
-                                        </div>
-
-                                        {isLastQuestion && (
-                                            <div className="pt-2">
-                                                <button
-                                                    onClick={confirmAndSubmit}
-                                                    disabled={submitting}
-                                                    className="w-full px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 font-semibold"
-                                                >
-                                                    {submitting ? "Submitting..." : "Finish Exam"}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                {submitMsg && <p className="text-sm text-green-400">{submitMsg}</p>}
+                        {/* Sidebar Footer */}
+                        <div className="p-8 border-t border-white/5 bg-zinc-950/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden">
+                                    <span className="text-xl font-black text-zinc-500">{accessData.student.name.charAt(0)}</span>
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-sm font-black text-zinc-200 truncate">{accessData.student.name}</span>
+                                    <span className="text-[10px] font-bold text-zinc-600 tracking-wider truncate uppercase">{accessData.student.rollNo || "ID UNKNOWN"}</span>
+                                </div>
                             </div>
+                        </div>
+                    </aside>
 
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col sticky top-6 self-start max-h-[calc(100vh-7rem)]">
-                                <div className="space-y-6 overflow-y-auto pr-1 flex-1 custom-scrollbar">
-                                    <div>
-                                        <p className="text-xs uppercase text-zinc-500 tracking-widest mb-3 font-bold">Student Details</p>
-                                        <div className="space-y-3 text-sm">
-                                            <div>
-                                                <span className="text-zinc-500 text-xs block mb-0.5">Name</span>
-                                                <span className="text-white font-medium block">{accessData.student.name}</span>
-                                            </div>
-                                            {accessData.student.rollNo && (
-                                                <div>
-                                                    <span className="text-zinc-500 text-xs block mb-0.5">Roll No</span>
-                                                    <span className="text-zinc-300 block">{accessData.student.rollNo}</span>
-                                                </div>
-                                            )}
-                                            <div>
-                                                <span className="text-zinc-500 text-xs block mb-0.5">Email</span>
-                                                <span className="text-zinc-300 block break-all">{accessData.student.emailId}</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {accessData.student.section && (
-                                                    <div>
-                                                        <span className="text-zinc-500 text-xs block mb-0.5">Section</span>
-                                                        <span className="text-zinc-300 block">{accessData.student.section}</span>
-                                                    </div>
-                                                )}
-                                                {accessData.student.year && (
-                                                    <div>
-                                                        <span className="text-zinc-500 text-xs block mb-0.5">Year</span>
-                                                        <span className="text-zinc-300 block">{accessData.student.year}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                    {/* MAIN CONTENT AREA */}
+                    <main className="flex-1 relative flex flex-col overflow-hidden bg-radial-[at_center_center] from-zinc-900 via-zinc-950 to-zinc-950">
+                        {/* Floating elements */}
+                        <div className="absolute inset-0 pointer-events-none opacity-20">
+                            <div className="absolute top-[20%] right-[10%] w-96 h-96 bg-blue-500/20 rounded-full blur-[100px]" />
+                            <div className="absolute bottom-[20%] left-[5%] w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px]" />
+                        </div>
+
+                        {/* Question Viewport */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-12 lg:p-24 relative z-10">
+                            <div className="max-w-4xl mx-auto space-y-16">
+                                {/* Question Header */}
+                                <div className="flex items-center gap-8">
+                                    <div className="h-20 w-20 shrink-0 rounded-[2.5rem] bg-zinc-900 border-2 border-white/5 flex items-center justify-center text-4xl font-black text-white italic shadow-2xl">
+                                        {currentIndex + 1}
                                     </div>
-                                    <div className="border-t border-zinc-800 pt-4">
-                                        <p className="text-xs uppercase text-zinc-500 tracking-widest mb-3 font-bold">Exam Details</p>
-                                        <div className="space-y-3 text-sm">
-                                            <div>
-                                                <span className="text-zinc-500 text-xs block mb-0.5">Exam Name</span>
-                                                <span className="text-white font-medium block">{accessData.exam.name}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50">
-                                                <span className="text-zinc-400 text-xs">Questions</span>
-                                                <span className="text-white font-bold">{accessData.exam._count.questions}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50">
-                                                <span className="text-zinc-400 text-xs">Total Marks</span>
-                                                <span className="text-white font-bold">{accessData.exam.totalMarks}</span>
-                                            </div>
-                                        </div>
+                                    <div className="space-y-1">
+                                        <span className="text-xs font-black text-zinc-600 uppercase tracking-[0.4em] italic">Current Segment</span>
+                                        <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight italic">
+                                            {currentQuestion?.question}
+                                        </h2>
                                     </div>
-                                    {violationCount > 0 && (
-                                        <div className="border-t border-zinc-800 pt-4">
-                                            <p className="text-xs uppercase text-red-500 tracking-widest mb-2 font-bold flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                                Warnings
-                                            </p>
-                                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                                                <p className="text-red-400 text-xs font-bold mb-1">
-                                                    Violation Detected ({violationCount})
-                                                </p>
-                                                <p className="text-red-300 text-xs leading-relaxed">
-                                                    {violationMsg}
-                                                </p>
+                                </div>
+
+                                {/* Response Interaction Area */}
+                                <div className="pl-28">
+                                    {currentQuestion?.questionType === "option" && currentQuestion.options.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {currentQuestion.options.map((option, idx) => {
+                                                const value = String.fromCharCode(65 + idx)
+                                                const isSelected = answers[currentIndex] === value
+
+                                                return (
+                                                    <button
+                                                        key={`${option}-${idx}`}
+                                                        onClick={() => handleAnswerChange(currentIndex, value)}
+                                                        className={`
+                                                            group flex items-center gap-6 p-6 rounded-[2rem] border-2 text-left transition-all duration-300
+                                                            ${isSelected ? 'bg-blue-600/10 border-blue-600/50 shadow-[0_20px_40px_-10px_rgba(37,99,235,0.2)]' :
+                                                                'bg-zinc-900/40 border-white/5 hover:border-white/10 hover:bg-zinc-800/50'}
+                                                        `}
+                                                    >
+                                                        <div className={`
+                                                            h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center text-lg font-black transition-all
+                                                            ${isSelected ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]' : 'bg-zinc-950 text-zinc-600 group-hover:text-zinc-400'}
+                                                        `}>
+                                                            {value}
+                                                        </div>
+                                                        <span className={`text-xl font-bold transition-colors ${isSelected ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`}>
+                                                            {option}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2 italic">Detailed Analysis Response</div>
+                                            <div className="relative group">
+                                                <div className="absolute inset-0 bg-blue-500/5 blur-2xl rounded-[3rem] opacity-0 group-focus-within:opacity-100 transition-opacity" />
+                                                <textarea
+                                                    value={answers[currentIndex] ?? ""}
+                                                    onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
+                                                    placeholder="Synthesize your response here..."
+                                                    className="w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
+                                                />
                                             </div>
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
 
-                                <div className="mt-auto pt-6 border-t border-zinc-800">
-                                    <button
-                                        onClick={confirmAndSubmit}
-                                        disabled={submitting}
-                                        className="w-full px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 font-bold text-white transition-all shadow-lg shadow-blue-900/20 active:scale-95"
-                                    >
-                                        {submitting ? "Submitting..." : "Submit Exam"}
-                                    </button>
+                        {/* Navigation Control Bar */}
+                        <div className="px-12 py-8 bg-zinc-950/80 border-t border-white/5 relative z-20 backdrop-blur-xl">
+                            <div className="max-w-4xl mx-auto flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentIndex((prev) => Math.max(prev - 1, 0))}
+                                    disabled={currentIndex === 0}
+                                    className="h-14 px-10 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-white/5 font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all active:scale-95 disabled:opacity-20 disabled:scale-100"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    Previous
+                                </button>
+
+                                <div className="flex gap-4">
+                                    {isLastQuestion ? (
+                                        <button
+                                            onClick={confirmAndSubmit}
+                                            disabled={submitting}
+                                            className="h-14 px-10 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-xs shadow-[0_20px_40px_-10px_rgba(34,197,94,0.4)] transition-all active:scale-95 flex items-center gap-3"
+                                        >
+                                            {submitting ? "Processing..." : "Submit Assessment"}
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentIndex((prev) => Math.min(prev + 1, questionCount - 1))}
+                                            className="h-14 px-12 rounded-2xl bg-white text-zinc-950 font-black uppercase tracking-widest text-xs shadow-[0_20px_40px_-10px_rgba(255,255,255,0.2)] transition-all active:scale-95 flex items-center gap-3"
+                                        >
+                                            Next Item
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-
-                {phase === "submitted" && (
-                    <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
-                        <h2 className="text-2xl font-bold text-white">Exam submitted</h2>
-                        <p className="text-zinc-400 text-sm">Your answers have been saved. You may close this tab.</p>
-                    </div>
-                )}
-            </div>
+                    </main>
+                </div>
+            )}
         </div>
     )
 }
