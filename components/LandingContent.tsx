@@ -193,12 +193,12 @@ export default function LandingContent({ primaryLink, heroLink }: LandingContent
                             >
                                 {heroLink.label}
                             </Link>
-                            <a
-                                href="#features"
+                            <Link
+                                href="/demo-test"
                                 className="px-10 py-4 bg-zinc-900 hover:bg-zinc-800 text-white font-black uppercase tracking-widest text-sm rounded-2xl transition-all border border-white/5 active:scale-95"
                             >
-                                Explore Stack
-                            </a>
+                                Try Demo Test
+                            </Link>
                         </div>
                     </div>
                 </section>
