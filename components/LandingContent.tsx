@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 
@@ -205,205 +206,189 @@ export default function LandingContent({ primaryLink, heroLink }: LandingContent
                 <div className="max-w-7xl mx-auto px-6">
                     {/* Benefits Sections */}
                     <div className="mt-60 space-y-40">
-                    {/* For Students */}
-                    <section className="reveal-section grid md:grid-cols-2 gap-20 items-center">
-                        <div className="space-y-6">
-                            <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">For Students</span>
-                            <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Seamless Join. <br />Fair Outcomes.</h2>
-                            <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
-                                No hardware tokens or complex logins. Use your institute ID to join instantly.
-                                Our AI ensures a level playing field for every candidate.
-                            </p>
-                            <ul className="space-y-4 text-zinc-300 font-medium">
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Zero-Account Entrance</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Real-time Support Chat</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Responsive Design on All Devices</li>
-                            </ul>
-                        </div>
-                        <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden group">
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent p-12">
-                                <div className="w-full h-full border border-white/10 rounded-2xl flex items-center justify-center p-12">
-                                    <div className="text-center">
-                                        <div className="w-20 h-20 bg-blue-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)]">
-                                            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                            </svg>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="w-32 h-2 bg-white/20 rounded-full mx-auto" />
-                                            <div className="w-24 h-2 bg-white/10 rounded-full mx-auto" />
-                                        </div>
-                                    </div>
+                        {/* For Students */}
+                        <section className="reveal-section grid md:grid-cols-2 gap-20 items-center">
+                            <div className="space-y-6">
+                                <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">For Students</span>
+                                <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Seamless Join. <br />Fair Outcomes.</h2>
+                                <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
+                                    No hardware tokens or complex logins. Use your institute ID to join instantly.
+                                    Our AI ensures a level playing field for every candidate.
+                                </p>
+                                <ul className="space-y-4 text-zinc-300 font-medium">
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Zero-Account Entrance</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Real-time Support Chat</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Responsive Design on All Devices</li>
+                                </ul>
+                            </div>
+                            <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden group">
+                                <Image
+                                    src="/images/landing/student_exam.png"
+                                    alt="Student taking digital exam"
+                                    fill
+                                    className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
+                            </div>
+                        </section>
+
+                        {/* For Teachers */}
+                        <section className="reveal-section grid md:grid-cols-2 gap-20 items-center md:flex-row-reverse">
+                            <div className="md:order-last space-y-6">
+                                <span className="text-purple-500 font-black uppercase tracking-[0.3em] text-xs">For Teachers</span>
+                                <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Teach More. <br />Grade Less.</h2>
+                                <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
+                                    Create complex assessments in minutes. Automated grading and plagiarism
+                                    checks handle the heavy lifting so you can focus on mentorship.
+                                </p>
+                                <ul className="space-y-4 text-zinc-300 font-medium">
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> AI Question Generator</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Instant Result Distribution</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Detailed Student Psychometry</li>
+                                </ul>
+                            </div>
+                            <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden group">
+                                <Image
+                                    src="/images/landing/teacher_dashboard.png"
+                                    alt="Teacher managing exam dashboard"
+                                    fill
+                                    className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
+                            </div>
+                        </section>
+
+                        {/* For Organizations */}
+                        <section className="reveal-section grid md:grid-cols-2 gap-20 items-center">
+                            <div className="space-y-6">
+                                <span className="text-indigo-500 font-black uppercase tracking-[0.3em] text-xs">For Organizations</span>
+                                <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Built for <br />Compliance.</h2>
+                                <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
+                                    Secure your institutional integrity with enterprise-grade encryption,
+                                    audit logs, and SOC2 compliant data handling.
+                                </p>
+                                <ul className="space-y-4 text-zinc-300 font-medium">
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> White-label Solution</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> SSO & SIS Integration</li>
+                                    <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> Regional Data Residency</li>
+                                </ul>
+                            </div>
+                            <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden group">
+                                <Image
+                                    src="/images/landing/enterprise_compliance.png"
+                                    alt="Enterprise security and compliance visualization"
+                                    fill
+                                    className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* Target Audience Section */}
+                    <div className="mt-60 reveal-section text-center">
+                        <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">Ecosystem</span>
+                        <h2 className="text-4xl md:text-7xl font-black tracking-tight uppercase mt-4 mb-20 leading-none">Powering Every <br />Learning Frontier.</h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                            {[
+                                { label: "Universities", count: "500+" },
+                                { label: "K-12 Schools", count: "1200+" },
+                                { label: "Certifiers", count: "250+" },
+                                { label: "Corporate", count: "800+" }
+                            ].map((item, idx) => (
+                                <div key={idx} className="p-8 bg-zinc-900/40 border border-white/5 rounded-3xl">
+                                    <div className="text-3xl font-black text-white mb-2">{item.count}</div>
+                                    <div className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest">{item.label}</div>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Pricing Section */}
+                    <div className="mt-60">
+                        <div className="text-center mb-12 reveal-section">
+                            <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">Monetization</span>
+                            <h2 className="text-4xl md:text-7xl font-black tracking-tight uppercase mt-4 mb-8">Transparent Pricing.</h2>
+
+                            {/* Billing Toggle */}
+                            <div className="flex items-center justify-center gap-4 mb-12">
+                                <span className={`text-xs font-black uppercase tracking-widest transition-colors ${!isAnnual ? 'text-white' : 'text-zinc-500'}`}>Monthly</span>
+                                <button
+                                    onClick={() => setIsAnnual(!isAnnual)}
+                                    className="w-14 h-7 bg-zinc-900 border border-white/10 rounded-full relative p-1 transition-all"
+                                >
+                                    <div className={`w-5 h-5 bg-blue-600 rounded-full transition-transform duration-300 ${isAnnual ? 'translate-x-7' : 'translate-x-0'}`} />
+                                </button>
+                                <span className={`text-xs font-black uppercase tracking-widest transition-colors ${isAnnual ? 'text-white' : 'text-zinc-500'}`}>Yearly <span className="text-blue-500 ml-1 text-[8px] bg-blue-500/10 px-2 py-0.5 rounded-full">-20%</span></span>
                             </div>
                         </div>
-                    </section>
 
-                    {/* For Teachers */}
-                    <section className="reveal-section grid md:grid-cols-2 gap-20 items-center md:flex-row-reverse">
-                        <div className="md:order-last space-y-6">
-                            <span className="text-purple-500 font-black uppercase tracking-[0.3em] text-xs">For Teachers</span>
-                            <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Teach More. <br />Grade Less.</h2>
-                            <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
-                                Create complex assessments in minutes. Automated grading and plagiarism
-                                checks handle the heavy lifting so you can focus on mentorship.
-                            </p>
-                            <ul className="space-y-4 text-zinc-300 font-medium">
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> AI Question Generator</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Instant Result Distribution</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Detailed Student Psychometry</li>
-                            </ul>
-                        </div>
-                        <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent p-12">
-                                <div className="w-full h-full border border-white/10 rounded-2xl flex items-center justify-center p-12">
-                                    <div className="w-full space-y-4">
-                                        {[1, 2, 3].map(i => (
-                                            <div key={i} className="flex gap-4 items-center">
-                                                <div className="w-8 h-8 rounded bg-purple-500/20" />
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="w-full h-2 bg-white/20 rounded-full" />
-                                                    <div className="w-2/3 h-2 bg-white/10 rounded-full" />
+                        <div className="pricing-grid grid md:grid-cols-3 gap-8 items-end">
+                            {[
+                                {
+                                    name: "ESSENTIALS",
+                                    price: isAnnual ? "39" : "49",
+                                    description: "Perfect for individual educators and small batches.",
+                                    features: ["Up to 500 candidates", "Standard AI proctoring", "PDF exports", "Email support", "Basic Analytics"],
+                                    color: "border-white/5",
+                                    buttonStyle: "bg-zinc-800 hover:bg-zinc-700"
+                                },
+                                {
+                                    name: "PROFESSIONAL",
+                                    price: isAnnual ? "119" : "149",
+                                    description: "Scale your institution with advanced AI and dedicated support.",
+                                    features: ["Up to 5000 candidates", "Advanced behavior AI", "SSO integration", "Priority support", "Live Dashboard", "CSV Exports"],
+                                    color: "border-blue-500/50 bg-blue-500/[0.03] scale-105",
+                                    popular: true,
+                                    buttonStyle: "bg-blue-600 hover:bg-blue-500 shadow-[0_20px_40px_-10px_rgba(37,99,235,0.4)]"
+                                },
+                                {
+                                    name: "ENTERPRISE",
+                                    price: "Custom",
+                                    description: "Mission-critical reliability for enterprise-scale operations.",
+                                    features: ["Unlimited candidates", "Custom AI training", "24/7 Dedicated Ops", "On-premise deploy", "Custom Branding", "SLA Guarantee"],
+                                    color: "border-white/5",
+                                    buttonStyle: "bg-zinc-800 hover:bg-zinc-700"
+                                }
+                            ].map((tier, idx) => (
+                                <div key={idx} className={`pricing-card relative p-10 rounded-[40px] border ${tier.color} backdrop-blur-3xl group hover:border-blue-500/30 transition-all duration-500 flex flex-col min-h-[500px]`}>
+                                    {tier.popular && (
+                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full shadow-[0_10px_20px_rgba(37,99,235,0.3)] z-10 animate-bounce">Most Popular</div>
+                                    )}
+
+                                    <div className="mb-8">
+                                        <div className="text-[10px] font-black text-zinc-500 mb-2 uppercase tracking-[0.3em]">{tier.name}</div>
+                                        <div className="flex items-baseline gap-1 mb-4">
+                                            <span className="text-5xl font-black text-white">{tier.price === "Custom" ? "" : "$"}{tier.price}</span>
+                                            {tier.price !== "Custom" && <span className="text-sm text-zinc-600 font-bold uppercase tracking-widest">/mo</span>}
+                                        </div>
+                                        <p className="text-zinc-500 text-xs font-medium leading-relaxed">{tier.description}</p>
+                                    </div>
+
+                                    <div className="space-y-4 mb-12 flex-1">
+                                        {tier.features.map((f, i) => (
+                                            <div key={i} className="flex gap-3 text-sm font-medium items-start group/item">
+                                                <div className="mt-1 w-4 h-4 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover/item:bg-blue-500/30 transition-colors">
+                                                    <svg className="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                    </svg>
                                                 </div>
+                                                <span className="text-zinc-400 group-hover/item:text-zinc-200 transition-colors">{f}</span>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
 
-                    {/* For Organizations */}
-                    <section className="reveal-section grid md:grid-cols-2 gap-20 items-center">
-                        <div className="space-y-6">
-                            <span className="text-indigo-500 font-black uppercase tracking-[0.3em] text-xs">For Organizations</span>
-                            <h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase">Built for <br />Compliance.</h2>
-                            <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-lg">
-                                Secure your institutional integrity with enterprise-grade encryption,
-                                audit logs, and SOC2 compliant data handling.
-                            </p>
-                            <ul className="space-y-4 text-zinc-300 font-medium">
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> White-label Solution</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> SSO & SIS Integration</li>
-                                <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> Regional Data Residency</li>
-                            </ul>
-                        </div>
-                        <div className="relative aspect-square bg-zinc-900/50 rounded-3xl border border-white/5 overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent p-12">
-                                <div className="w-full h-full border border-white/10 rounded-2xl flex flex-wrap gap-4 items-center justify-center p-8">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                                        <div key={i} className="w-12 h-12 rounded-xl bg-indigo-500/20 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
+                                    <button className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 ${tier.buttonStyle}`}>
+                                        {tier.price === "Custom" ? "Contact Sales" : "Get Started Now"}
+                                    </button>
 
-                {/* Target Audience Section */}
-                <div className="mt-60 reveal-section text-center">
-                    <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">Ecosystem</span>
-                    <h2 className="text-4xl md:text-7xl font-black tracking-tight uppercase mt-4 mb-20 leading-none">Powering Every <br />Learning Frontier.</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        {[
-                            { label: "Universities", count: "500+" },
-                            { label: "K-12 Schools", count: "1200+" },
-                            { label: "Certifiers", count: "250+" },
-                            { label: "Corporate", count: "800+" }
-                        ].map((item, idx) => (
-                            <div key={idx} className="p-8 bg-zinc-900/40 border border-white/5 rounded-3xl">
-                                <div className="text-3xl font-black text-white mb-2">{item.count}</div>
-                                <div className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest">{item.label}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Pricing Section */}
-                <div className="mt-60">
-                    <div className="text-center mb-12 reveal-section">
-                        <span className="text-blue-500 font-black uppercase tracking-[0.3em] text-xs">Monetization</span>
-                        <h2 className="text-4xl md:text-7xl font-black tracking-tight uppercase mt-4 mb-8">Transparent Pricing.</h2>
-
-                        {/* Billing Toggle */}
-                        <div className="flex items-center justify-center gap-4 mb-12">
-                            <span className={`text-xs font-black uppercase tracking-widest transition-colors ${!isAnnual ? 'text-white' : 'text-zinc-500'}`}>Monthly</span>
-                            <button
-                                onClick={() => setIsAnnual(!isAnnual)}
-                                className="w-14 h-7 bg-zinc-900 border border-white/10 rounded-full relative p-1 transition-all"
-                            >
-                                <div className={`w-5 h-5 bg-blue-600 rounded-full transition-transform duration-300 ${isAnnual ? 'translate-x-7' : 'translate-x-0'}`} />
-                            </button>
-                            <span className={`text-xs font-black uppercase tracking-widest transition-colors ${isAnnual ? 'text-white' : 'text-zinc-500'}`}>Yearly <span className="text-blue-500 ml-1 text-[8px] bg-blue-500/10 px-2 py-0.5 rounded-full">-20%</span></span>
-                        </div>
-                    </div>
-
-                    <div className="pricing-grid grid md:grid-cols-3 gap-8 items-end">
-                        {[
-                            {
-                                name: "ESSENTIALS",
-                                price: isAnnual ? "39" : "49",
-                                description: "Perfect for individual educators and small batches.",
-                                features: ["Up to 500 candidates", "Standard AI proctoring", "PDF exports", "Email support", "Basic Analytics"],
-                                color: "border-white/5",
-                                buttonStyle: "bg-zinc-800 hover:bg-zinc-700"
-                            },
-                            {
-                                name: "PROFESSIONAL",
-                                price: isAnnual ? "119" : "149",
-                                description: "Scale your institution with advanced AI and dedicated support.",
-                                features: ["Up to 5000 candidates", "Advanced behavior AI", "SSO integration", "Priority support", "Live Dashboard", "CSV Exports"],
-                                color: "border-blue-500/50 bg-blue-500/[0.03] scale-105",
-                                popular: true,
-                                buttonStyle: "bg-blue-600 hover:bg-blue-500 shadow-[0_20px_40px_-10px_rgba(37,99,235,0.4)]"
-                            },
-                            {
-                                name: "ENTERPRISE",
-                                price: "Custom",
-                                description: "Mission-critical reliability for enterprise-scale operations.",
-                                features: ["Unlimited candidates", "Custom AI training", "24/7 Dedicated Ops", "On-premise deploy", "Custom Branding", "SLA Guarantee"],
-                                color: "border-white/5",
-                                buttonStyle: "bg-zinc-800 hover:bg-zinc-700"
-                            }
-                        ].map((tier, idx) => (
-                            <div key={idx} className={`pricing-card relative p-10 rounded-[40px] border ${tier.color} backdrop-blur-3xl group hover:border-blue-500/30 transition-all duration-500 flex flex-col min-h-[500px]`}>
-                                {tier.popular && (
-                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full shadow-[0_10px_20px_rgba(37,99,235,0.3)] z-10 animate-bounce">Most Popular</div>
-                                )}
-
-                                <div className="mb-8">
-                                    <div className="text-[10px] font-black text-zinc-500 mb-2 uppercase tracking-[0.3em]">{tier.name}</div>
-                                    <div className="flex items-baseline gap-1 mb-4">
-                                        <span className="text-5xl font-black text-white">{tier.price === "Custom" ? "" : "$"}{tier.price}</span>
-                                        {tier.price !== "Custom" && <span className="text-sm text-zinc-600 font-bold uppercase tracking-widest">/mo</span>}
+                                    <div className="mt-6 text-center">
+                                        <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">No credit card required</span>
                                     </div>
-                                    <p className="text-zinc-500 text-xs font-medium leading-relaxed">{tier.description}</p>
                                 </div>
-
-                                <div className="space-y-4 mb-12 flex-1">
-                                    {tier.features.map((f, i) => (
-                                        <div key={i} className="flex gap-3 text-sm font-medium items-start group/item">
-                                            <div className="mt-1 w-4 h-4 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover/item:bg-blue-500/30 transition-colors">
-                                                <svg className="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                            <span className="text-zinc-400 group-hover/item:text-zinc-200 transition-colors">{f}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <button className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 ${tier.buttonStyle}`}>
-                                    {tier.price === "Custom" ? "Contact Sales" : "Get Started Now"}
-                                </button>
-
-                                <div className="mt-6 text-center">
-                                    <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">No credit card required</span>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
                 </div>
             </main>
 
@@ -460,6 +445,11 @@ export default function LandingContent({ primaryLink, heroLink }: LandingContent
             </footer>
 
             <style jsx>{`
+                .hero-title {
+                    font-family: var(--font-young-serif), serif;
+                    font-weight: 400;
+                }
+
                 .hero-title-neon {
                     color: rgb(255, 255, 255);
                     text-shadow:
