@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Script from "next/script"
 
@@ -81,6 +81,7 @@ type ConfirmationModalState = {
 }
 
 const ESC_LONG_PRESS_MS = 700
+const WARNING_SPEECH_COOLDOWN_MS = 2500
 
 const createInitialEscapePressState = (): EscapePressState => ({
     isDown: false,
@@ -125,6 +126,7 @@ export default function ExamAccessPage() {
     const currentIndexRef = useRef(0)
     const submittingRef = useRef(false)
     const focusLossConfirmationRef = useRef(false)
+    const lastWarningSpeechRef = useRef<{ message: string; at: number }>({ message: "", at: 0 })
 
     const totalSeconds = useMemo(() => (accessData ? accessData.exam.duration * 60 : null), [accessData])
     const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
@@ -152,6 +154,44 @@ export default function ExamAccessPage() {
         const elapsedSeconds = Math.floor((Date.now() - startedAtMs) / 1000)
         return Math.max(total - elapsedSeconds, 0)
     }
+
+    const speakWarningAlert = useCallback((reason: string, fallbackMessage: string) => {
+        if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+
+        const speechText = (() => {
+            if (reason === "escape-click") {
+                return "You pressed Escape. This counts as a warning."
+            }
+            if (reason.startsWith("escape-hold")) {
+                return "Long press Escape detected. This counts as a warning."
+            }
+            if (reason === "tab-switch" || reason === "window-blur") {
+                return "App switch detected. This counts as a warning."
+            }
+            if (reason.includes("fullscreen-exit")) {
+                return "Fullscreen exit detected. This counts as a warning."
+            }
+            return fallbackMessage
+        })()
+
+        const now = Date.now()
+        const lastSpoken = lastWarningSpeechRef.current
+        if (lastSpoken.message === speechText && now - lastSpoken.at < WARNING_SPEECH_COOLDOWN_MS) {
+            return
+        }
+
+        try {
+            const synth = window.speechSynthesis
+            synth.cancel()
+            const utterance = new SpeechSynthesisUtterance(speechText)
+            utterance.rate = 1
+            utterance.pitch = 1
+            synth.speak(utterance)
+            lastWarningSpeechRef.current = { message: speechText, at: now }
+        } catch (error) {
+            console.warn("Unable to play warning speech:", error)
+        }
+    }, [])
 
     const handleSubmitAccess = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -221,18 +261,20 @@ export default function ExamAccessPage() {
         await root.requestFullscreen()
     }
 
-    const recordViolation = (reason: string, message: string, cooldownMs = 1500) => {
+    const recordViolation = useCallback((reason: string, message: string, cooldownMs = 1500) => {
         const now = Date.now()
         const last = lastViolationRef.current
         if (now - last.at < cooldownMs) {
             setViolationMsg(message)
+            speakWarningAlert(reason, message)
             return
         }
         lastViolationRef.current = { reason, at: now }
         setViolationCount((prev) => prev + 1)
         setViolationMsg(message)
         setWarnings((prev) => [...prev, { reason, message, at: new Date(now).toISOString() }])
-    }
+        speakWarningAlert(reason, message)
+    }, [speakWarningAlert])
 
     const lockExamKeyboard = async () => {
         const keyboard = (navigator as NavigatorWithKeyboardLock).keyboard
@@ -375,6 +417,9 @@ export default function ExamAccessPage() {
         if (phase !== "exam") {
             focusLossConfirmationRef.current = false
             setConfirmationModal(null)
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel()
+            }
         }
     }, [phase])
 
@@ -455,6 +500,7 @@ export default function ExamAccessPage() {
             if (submittingRef.current) return
 
             focusLossConfirmationRef.current = true
+            speakWarningAlert(reason, message)
 
             setConfirmationModal({
                 mode: "focus-loss-submit",
@@ -635,7 +681,7 @@ export default function ExamAccessPage() {
             clearFullscreenRecovery()
             unlockExamKeyboard()
         }
-    }, [phase, accessData])
+    }, [phase, accessData, recordViolation, speakWarningAlert])
 
     useEffect(() => {
         if (phase === "exam" && timeLeft === 0) {
