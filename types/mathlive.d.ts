@@ -7,6 +7,9 @@ type MathFieldProps = HtmlElementProps & {
     multiline?: boolean
     "default-mode"?: string
     "smart-mode"?: boolean
+    value?: string
+    "read-only"?: boolean
+    readonly?: boolean
 }
 
 declare module "react" {

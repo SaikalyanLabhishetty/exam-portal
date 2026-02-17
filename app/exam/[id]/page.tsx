@@ -17,6 +17,7 @@ type AttemptInfo = {
     status: AttemptStatus
     startedAt: string | null
     answers: { questionIndex: number; answer: string }[]
+    warnings: WarningEvent[]
     currentIndex: number
     remainingSeconds: number | null
 }
@@ -66,15 +67,17 @@ type FullscreenRecoveryState = {
     message: string
 } | null
 
-type MathfieldElement = HTMLElement & {
-    value: string
-    focus: () => void
-}
-
 type WarningEvent = {
     reason: string
     message: string
     at: string
+}
+
+type ConfirmationModalState = {
+    mode: "manual-submit" | "focus-loss-submit"
+    title: string
+    message: string
+    reason?: string
 }
 
 const ESC_LONG_PRESS_MS = 700
@@ -110,21 +113,25 @@ export default function ExamAccessPage() {
     const [warnings, setWarnings] = useState<WarningEvent[]>([])
     const [attempt, setAttempt] = useState<AttemptInfo | null>(null)
     const [isMathLiveLoaded, setIsMathLiveLoaded] = useState(false)
+    const [confirmationModal, setConfirmationModal] = useState<ConfirmationModalState | null>(null)
     const lastViolationRef = useRef<{ reason: string; at: number }>({ reason: "", at: 0 })
     const isReEnteringFullscreenRef = useRef(false)
     const escapePressRef = useRef<EscapePressState>(createInitialEscapePressState())
     const fullscreenRecoveryRef = useRef<FullscreenRecoveryState>(null)
     const fullscreenRetryTimerRef = useRef<number | null>(null)
     const progressSaveTimerRef = useRef<number | null>(null)
-    const mathFieldRef = useRef<MathfieldElement | null>(null)
+    const answersRef = useRef<Record<number, string>>({})
+    const warningsRef = useRef<WarningEvent[]>([])
+    const currentIndexRef = useRef(0)
+    const submittingRef = useRef(false)
+    const focusLossConfirmationRef = useRef(false)
 
     const totalSeconds = useMemo(() => (accessData ? accessData.exam.duration * 60 : null), [accessData])
     const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
     const totalQuestions = accessData?.questions.length ?? 0
     const progressPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0
     const currentQuestion = accessData?.questions[currentIndex]
-    const isLongAnswerQuestion =
-        currentQuestion?.questionType === "text" || currentQuestion?.questionType === "formula"
+    const isFormulaQuestion = currentQuestion?.questionType === "formula"
 
     const buildAnswerEntries = (answerState: Record<number, string>) =>
         Object.entries(answerState).map(([questionIndex, answer]) => ({
@@ -187,7 +194,11 @@ export default function ExamAccessPage() {
             if (nextAttempt?.status === "pending") {
                 const questionTotal = data.questions?.length ?? 0
                 const savedAnswers = toAnswerMap(nextAttempt.answers ?? [])
+                const savedWarnings = Array.isArray(nextAttempt.warnings) ? nextAttempt.warnings : []
                 setAnswers(savedAnswers)
+                setWarnings(savedWarnings)
+                setViolationCount(savedWarnings.length)
+                setViolationMsg(savedWarnings[savedWarnings.length - 1]?.message ?? "")
                 const nextIndex =
                     typeof nextAttempt.currentIndex === "number"
                         ? Math.min(Math.max(nextAttempt.currentIndex, 0), Math.max(questionTotal - 1, 0))
@@ -195,6 +206,9 @@ export default function ExamAccessPage() {
                 setCurrentIndex(nextIndex)
             } else {
                 setAnswers({})
+                setWarnings([])
+                setViolationCount(0)
+                setViolationMsg("")
                 setCurrentIndex(0)
             }
             setPhase("overview")
@@ -231,7 +245,7 @@ export default function ExamAccessPage() {
         const keyboard = (navigator as NavigatorWithKeyboardLock).keyboard
         if (!keyboard?.lock) return
         try {
-            await keyboard.lock(["Escape"])
+            await keyboard.lock()
         } catch (err) {
             console.warn("Keyboard lock unavailable:", err)
         }
@@ -298,9 +312,12 @@ export default function ExamAccessPage() {
             return
         }
 
-        setViolationCount(0)
-        setViolationMsg("")
-        setWarnings([])
+        const resumedWarnings = attempt?.status === "pending" && Array.isArray(attempt.warnings)
+            ? attempt.warnings
+            : []
+        setWarnings(resumedWarnings)
+        setViolationCount(resumedWarnings.length)
+        setViolationMsg(resumedWarnings[resumedWarnings.length - 1]?.message ?? "")
         lastViolationRef.current = { reason: "", at: 0 }
         escapePressRef.current = createInitialEscapePressState()
         fullscreenRecoveryRef.current = null
@@ -308,6 +325,8 @@ export default function ExamAccessPage() {
             window.clearTimeout(fullscreenRetryTimerRef.current)
             fullscreenRetryTimerRef.current = null
         }
+        focusLossConfirmationRef.current = false
+        setConfirmationModal(null)
         setPhase("exam")
         const total = accessData.exam.duration * 60
         const startedAt =
@@ -326,6 +345,7 @@ export default function ExamAccessPage() {
             status: "pending",
             startedAt: startedAt,
             answers: prev?.answers ?? [],
+            warnings: prev?.warnings ?? resumedWarnings,
             currentIndex: nextIndex,
             remainingSeconds: null,
         }))
@@ -345,6 +365,29 @@ export default function ExamAccessPage() {
         const interval = window.setInterval(tick, 1000)
         return () => window.clearInterval(interval)
     }, [phase, totalSeconds])
+
+    useEffect(() => {
+        answersRef.current = answers
+    }, [answers])
+
+    useEffect(() => {
+        warningsRef.current = warnings
+    }, [warnings])
+
+    useEffect(() => {
+        currentIndexRef.current = currentIndex
+    }, [currentIndex])
+
+    useEffect(() => {
+        submittingRef.current = submitting
+    }, [submitting])
+
+    useEffect(() => {
+        if (phase !== "exam") {
+            focusLossConfirmationRef.current = false
+            setConfirmationModal(null)
+        }
+    }, [phase])
 
     useEffect(() => {
         if (phase !== "exam" || !accessData) return
@@ -418,11 +461,26 @@ export default function ExamAccessPage() {
             scheduleFullscreenRecovery(0)
         }
 
+        const openFocusLossConfirmation = (reason: string, message: string) => {
+            if (focusLossConfirmationRef.current) return
+            if (submittingRef.current) return
+
+            focusLossConfirmationRef.current = true
+
+            setConfirmationModal({
+                mode: "focus-loss-submit",
+                title: "App Switch Detected",
+                message,
+                reason,
+            })
+        }
+
         const blockContext = (e: Event) => e.preventDefault()
         const blockKeys = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase()
-            const blockedPlainKeys = ["escape", "f11", "f12"]
-            const blockedWithMeta = ["i", "j", "c", "k", "u", "r", "w", "t", "n", "p"]
+            const blockedPlainKeys = ["escape"]
+            const isFunctionKey = /^f\d{1,2}$/.test(key)
+            const isModifierShortcut = e.ctrlKey || e.metaKey || e.altKey
 
             if (key === "escape") {
                 const now = Date.now()
@@ -440,11 +498,16 @@ export default function ExamAccessPage() {
 
             if (
                 blockedPlainKeys.includes(key) ||
-                ((e.ctrlKey || e.metaKey) && blockedWithMeta.includes(key))
+                isFunctionKey ||
+                isModifierShortcut
             ) {
                 e.preventDefault()
                 e.stopPropagation()
             }
+        }
+        const blockClipboard = (e: ClipboardEvent) => {
+            e.preventDefault()
+            e.stopPropagation()
         }
 
         const onKeyUp = (e: KeyboardEvent) => {
@@ -476,6 +539,10 @@ export default function ExamAccessPage() {
                     "tab-switch",
                     "User switched to a new tab/app. Re-entering fullscreen."
                 )
+                openFocusLossConfirmation(
+                    "tab-switch",
+                    "You switched away from the exam. Submit now, or continue the exam."
+                )
                 return
             }
 
@@ -489,6 +556,10 @@ export default function ExamAccessPage() {
                 enforceFullscreen(
                     "window-blur",
                     "Focus left the exam window. Re-entering fullscreen."
+                )
+                openFocusLossConfirmation(
+                    "window-blur",
+                    "Exam window lost focus. Submit now, or continue the exam."
                 )
             }
         }
@@ -540,6 +611,9 @@ export default function ExamAccessPage() {
         }
 
         document.addEventListener("contextmenu", blockContext)
+        document.addEventListener("copy", blockClipboard, true)
+        document.addEventListener("cut", blockClipboard, true)
+        document.addEventListener("paste", blockClipboard, true)
         document.addEventListener("keydown", blockKeys, true)
         document.addEventListener("keydown", resumeFullscreenOnGesture, true)
         document.addEventListener("pointerdown", resumeFullscreenOnGesture, true)
@@ -555,6 +629,9 @@ export default function ExamAccessPage() {
 
         return () => {
             document.removeEventListener("contextmenu", blockContext)
+            document.removeEventListener("copy", blockClipboard, true)
+            document.removeEventListener("cut", blockClipboard, true)
+            document.removeEventListener("paste", blockClipboard, true)
             document.removeEventListener("keydown", blockKeys, true)
             document.removeEventListener("keydown", resumeFullscreenOnGesture, true)
             document.removeEventListener("pointerdown", resumeFullscreenOnGesture, true)
@@ -610,35 +687,6 @@ export default function ExamAccessPage() {
         }
     }, [phase, accessData, submitting, answers, currentIndex, warnings])
 
-    useEffect(() => {
-        if (!isMathLiveLoaded) return
-        if (phase !== "exam") return
-        if (!isLongAnswerQuestion) return
-
-        const field = mathFieldRef.current
-        if (!field) return
-        const nextValue = answers[currentIndex] ?? ""
-        if (field.value !== nextValue) {
-            field.value = nextValue
-        }
-        field.focus()
-    }, [isMathLiveLoaded, phase, currentIndex, isLongAnswerQuestion, answers])
-
-    useEffect(() => {
-        if (!isMathLiveLoaded) return
-        const keyboard = (window as Window & { mathVirtualKeyboard?: { show: () => void; hide: () => void } })
-            .mathVirtualKeyboard
-        if (!keyboard) return
-
-        if (phase === "exam" && isLongAnswerQuestion) {
-            keyboard.show()
-        } else {
-            keyboard.hide()
-        }
-
-        return () => keyboard.hide()
-    }, [isMathLiveLoaded, phase, isLongAnswerQuestion])
-
     const handleAnswerChange = (index: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [index]: value }))
     }
@@ -661,17 +709,29 @@ export default function ExamAccessPage() {
         })
     }
 
-    const handleSubmitAnswers = async () => {
-        if (!accessData || submitting) return
+    const handleSubmitAnswers = async (options?: { warningEvent?: WarningEvent; successMessage?: string }) => {
+        if (!accessData || submittingRef.current) return
+        submittingRef.current = true
         setSubmitting(true)
         setSubmitMsg("")
+
+        const warningEvent = options?.warningEvent
+        if (warningEvent) {
+            setViolationCount((prev) => prev + 1)
+            setViolationMsg(warningEvent.message)
+            setWarnings((prev) => [...prev, warningEvent])
+        }
+
         try {
+            const warningPayload = warningEvent
+                ? [...warningsRef.current, warningEvent]
+                : warningsRef.current
             const payload = {
                 studentId: accessData.student.id,
-                answers: buildAnswerEntries(answers),
-                warnings,
+                answers: buildAnswerEntries(answersRef.current),
+                warnings: warningPayload,
                 status: "completed" as const,
-                currentIndex,
+                currentIndex: currentIndexRef.current,
             }
             const res = await fetch(`/api/exams/${accessData.exam.id}/answers`, {
                 method: "POST",
@@ -683,7 +743,7 @@ export default function ExamAccessPage() {
                 const data = await res.json()
                 setSubmitMsg(data.error || "Failed to submit answers.")
             } else {
-                setSubmitMsg("Answers saved. You may close the exam.")
+                setSubmitMsg(options?.successMessage || "Answers saved. You may close the exam.")
                 setPhase("submitted")
                 setAttempt((prev) =>
                     prev
@@ -703,15 +763,40 @@ export default function ExamAccessPage() {
             setSubmitMsg("Failed to submit answers.")
         } finally {
             setSubmitting(false)
+            submittingRef.current = false
         }
     }
 
     const confirmAndSubmit = () => {
         if (submitting) return
-        const confirmed = window.confirm("Submit the exam now? You cannot change answers after submission.")
-        if (confirmed) {
-            handleSubmitAnswers()
+        setConfirmationModal({
+            mode: "manual-submit",
+            title: "Submit Exam",
+            message: "Submit the exam now? You cannot change answers after submission.",
+        })
+    }
+
+    const closeConfirmationModal = () => {
+        if (submittingRef.current) return
+        focusLossConfirmationRef.current = false
+        setConfirmationModal(null)
+    }
+
+    const confirmSubmissionFromModal = () => {
+        if (!confirmationModal || submittingRef.current) return
+
+        const activeModal = confirmationModal
+        setConfirmationModal(null)
+        focusLossConfirmationRef.current = false
+
+        if (activeModal.mode === "focus-loss-submit") {
+            void handleSubmitAnswers({
+                successMessage: "Exam submitted after app switch confirmation.",
+            })
+            return
         }
+
+        void handleSubmitAnswers()
     }
 
     const formatTime = (seconds: number | null) => {
@@ -904,6 +989,11 @@ export default function ExamAccessPage() {
                                 <p className="text-zinc-500 font-medium leading-relaxed">
                                     Your response has been securely encrypted and transmitted. You may now close this portal.
                                 </p>
+                                {submitMsg && (
+                                    <p className="text-xs font-semibold text-amber-300/80 uppercase tracking-widest">
+                                        {submitMsg}
+                                    </p>
+                                )}
                             </div>
                             <div className="pt-4 flex flex-col gap-4">
                                 <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex justify-between items-center">
@@ -1032,9 +1122,21 @@ export default function ExamAccessPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <span className="text-xs font-black text-zinc-600 uppercase tracking-[0.4em] italic">Current Segment</span>
-                                        <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight italic">
-                                            {currentQuestion?.question}
-                                        </h2>
+                                        {isFormulaQuestion && isMathLiveLoaded ? (
+                                            <div className="mt-2 rounded-[2rem] border-2 border-white/5 bg-zinc-900/50 px-6 py-4">
+                                                <math-field
+                                                    key={`formula-question-${currentIndex}`}
+                                                    value={currentQuestion?.question ?? ""}
+                                                    read-only
+                                                    default-mode="math"
+                                                    className="block pointer-events-none bg-transparent border-0 p-0 text-4xl lg:text-5xl leading-tight"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight italic">
+                                                {currentQuestion?.question}
+                                            </h2>
+                                        )}
                                         {currentQuestion?.imageSrc && (
                                             <div className="pt-8">
                                                 <img
@@ -1118,27 +1220,12 @@ export default function ExamAccessPage() {
                                             </div>
                                             <div className="relative group">
                                                 <div className="absolute inset-0 bg-blue-500/5 blur-2xl rounded-[3rem] opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                                                {isMathLiveLoaded && isLongAnswerQuestion ? (
-                                                    <math-field
-                                                        ref={mathFieldRef}
-                                                        default-mode={currentQuestion?.questionType === "formula" ? "math" : "text"}
-                                                        smart-mode
-                                                        multiline
-                                                        placeholder="Synthesize your response here..."
-                                                        onInput={(event) => {
-                                                            const target = event.target as MathfieldElement
-                                                            handleAnswerChange(currentIndex, target.value ?? "")
-                                                        }}
-                                                        className="block w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
-                                                    />
-                                                ) : (
-                                                    <textarea
-                                                        value={answers[currentIndex] ?? ""}
-                                                        onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
-                                                        placeholder="Synthesize your response here..."
-                                                        className="w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
-                                                    />
-                                                )}
+                                                <textarea
+                                                    value={answers[currentIndex] ?? ""}
+                                                    onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
+                                                    placeholder="Synthesize your response here..."
+                                                    className="w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
+                                                />
                                             </div>
                                         </div>
                                     )}
@@ -1189,6 +1276,48 @@ export default function ExamAccessPage() {
                             </div>
                         </div>
                     </main>
+
+                    {confirmationModal && (
+                        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center px-4">
+                            <div className="w-full max-w-xl bg-zinc-900 border border-zinc-700 rounded-[2rem] p-8 md:p-10 shadow-2xl space-y-6">
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.25em]">
+                                        Confirmation Modal
+                                    </p>
+                                    <h3 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                                        {confirmationModal.title}
+                                    </h3>
+                                    <p className="text-sm md:text-base text-zinc-300 leading-relaxed">
+                                        {confirmationModal.message}
+                                    </p>
+                                    {confirmationModal.mode === "focus-loss-submit" && (
+                                        <p className="text-[11px] font-semibold text-amber-300/80 uppercase tracking-widest">
+                                            App switch detected during secure exam mode.
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={closeConfirmationModal}
+                                        disabled={submitting}
+                                        className="h-12 px-6 rounded-2xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-all font-black uppercase tracking-widest text-[10px] disabled:opacity-40"
+                                    >
+                                        Continue Exam
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={confirmSubmissionFromModal}
+                                        disabled={submitting}
+                                        className="h-12 px-6 rounded-2xl bg-red-600 hover:bg-red-500 text-white transition-all font-black uppercase tracking-widest text-[10px] shadow-[0_12px_30px_-8px_rgba(220,38,38,0.45)] disabled:opacity-40"
+                                    >
+                                        {submitting ? "Submitting..." : "Submit Exam"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
             <Script

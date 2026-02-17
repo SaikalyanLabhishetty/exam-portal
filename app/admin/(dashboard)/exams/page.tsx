@@ -911,9 +911,21 @@ export default function ExamsPage() {
                                                                 <div className="p-10 bg-white dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-[3rem] space-y-10 shadow-2xl">
                                                                     <div>
                                                                         <div className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6">Question Description</div>
-                                                                        <p className="text-3xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight italic">
-                                                                            &quot;{currentQuestion?.question}&quot;
-                                                                        </p>
+                                                                        {currentQuestion?.questionType === "formula" && isMathLiveLoaded ? (
+                                                                            <div className="rounded-[2rem] bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 px-6 py-5">
+                                                                                <math-field
+                                                                                    key={`preview-formula-question-${viewIndex}`}
+                                                                                    value={currentQuestion?.question ?? ""}
+                                                                                    read-only
+                                                                                    default-mode="math"
+                                                                                    className="block pointer-events-none bg-transparent border-0 p-0 text-3xl leading-tight"
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-3xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight italic">
+                                                                                &quot;{currentQuestion?.question}&quot;
+                                                                            </p>
+                                                                        )}
                                                                         {currentQuestion?.imageSrc && (
                                                                             <div className="mt-6 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
                                                                                 <img src={currentQuestion.imageSrc} alt="Question" className="w-full h-auto max-h-64 object-contain bg-zinc-100 dark:bg-zinc-900" />
@@ -930,9 +942,21 @@ export default function ExamsPage() {
                                                                         </div>
                                                                         <div className="space-y-4">
                                                                             <div className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">Correct Logic</div>
-                                                                            <div className="px-6 py-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-600 dark:text-green-400 font-black text-sm inline-block shadow-lg">
-                                                                                {currentQuestion?.answer}
-                                                                            </div>
+                                                                            {currentQuestion?.questionType === "formula" && isMathLiveLoaded ? (
+                                                                                <div className="inline-block px-6 py-4 bg-green-500/10 border border-green-500/20 rounded-2xl shadow-lg">
+                                                                                    <math-field
+                                                                                        key={`preview-formula-answer-${viewIndex}`}
+                                                                                        value={currentQuestion?.answer ?? ""}
+                                                                                        read-only
+                                                                                        default-mode="math"
+                                                                                        className="block pointer-events-none bg-transparent border-0 p-0 text-green-600 dark:text-green-400 text-sm"
+                                                                                    />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="px-6 py-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-600 dark:text-green-400 font-black text-sm inline-block shadow-lg">
+                                                                                    {currentQuestion?.answer}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </div>
 

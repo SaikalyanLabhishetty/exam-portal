@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
             status: AttemptStatus
             startedAt: string | null
             answers: { questionIndex: number; answer: string }[]
+            warnings: { reason: string; message: string; at: string }[]
             currentIndex: number
             remainingSeconds: number | null
         } | null = null
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
                 status: "pending",
                 startedAt: startedAtValid ? startedAtValid.toISOString() : null,
                 answers: Array.isArray(existingAttempt.answers) ? existingAttempt.answers : [],
+                warnings: Array.isArray(existingAttempt.warnings) ? existingAttempt.warnings : [],
                 currentIndex:
                     typeof existingAttempt.currentIndex === "number"
                         ? existingAttempt.currentIndex

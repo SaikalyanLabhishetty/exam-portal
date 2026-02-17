@@ -35,7 +35,6 @@ export async function POST(request: NextRequest, { params }: Params) {
             return NextResponse.json({ error: "status must be pending or completed" }, { status: 400 })
         }
 
-        const warningEntries = Array.isArray(warnings) ? warnings : []
         const attemptStatus = status ?? "completed"
 
         const db = await getDb()
@@ -45,6 +44,11 @@ export async function POST(request: NextRequest, { params }: Params) {
         }
 
         const existingAttempt = await db.collection("answers").findOne({ examId: id, studentId })
+        const warningEntries = Array.isArray(warnings)
+            ? warnings
+            : Array.isArray(existingAttempt?.warnings)
+              ? existingAttempt.warnings
+              : []
         const existingStatus =
             existingAttempt?.status === "completed" || existingAttempt?.status === "pending"
                 ? existingAttempt.status
