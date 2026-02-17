@@ -43,9 +43,10 @@ export type ExamDocument = {
     proctoringEnabled: boolean
     questions?: {
         question: string
-        questionType: "text" | "option"
+        questionType: "text" | "option" | "multi_select" | "formula"
         answer: string
         options?: string[]
+        imageSrc?: string
     }[]
     createdAt: Date
     updatedAt: Date

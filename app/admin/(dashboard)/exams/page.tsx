@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import Script from "next/script"
+
+type QuestionType = "text" | "option" | "multi_select" | "formula"
 
 interface Question {
     question: string
-    questionType: "text" | "option"
+    questionType: QuestionType
     answer: string
     options?: string[]
+    imageSrc?: string
 }
 
 interface Exam {
@@ -24,6 +28,29 @@ interface Exam {
     _count: { questions: number; students: number }
     questions?: Question[]
 }
+
+type MathfieldElement = HTMLElement & {
+    value: string
+    focus: () => void
+    insert?: (value: string) => void
+}
+
+type MathVirtualKeyboard = {
+    show: () => void
+    hide: () => void
+    layouts?: string[]
+}
+
+const FORMULA_KEYBOARD_LAYOUTS = ["numeric", "symbols", "alphabetic"]
+
+const FORMULA_INSERT_SNIPPETS = [
+    { label: "Fraction", latex: "\\frac{a}{b}" },
+    { label: "Power", latex: "x^{2}" },
+    { label: "Root", latex: "\\sqrt{x}" },
+    { label: "Subscript", latex: "x_{i}" },
+    { label: "Pi", latex: "\\pi" },
+    { label: "Theta", latex: "\\theta" },
+]
 
 export default function ExamsPage() {
     const [exams, setExams] = useState<Exam[]>([])
@@ -44,24 +71,32 @@ export default function ExamsPage() {
     const [stagedQuestions, setStagedQuestions] = useState<Question[]>([])
     const [questionForm, setQuestionForm] = useState({
         question: "",
-        questionType: "text" as "text" | "option",
+        questionType: "text" as QuestionType,
         answer: "",
         optionsCount: 4,
         options: ["", "", "", ""],
+        imageSrc: "",
     })
     const [viewIndex, setViewIndex] = useState(0)
     const [isAnimating, setIsAnimating] = useState(false)
     const [origin, setOrigin] = useState("")
     const [copiedExamId, setCopiedExamId] = useState<string | null>(null)
+    const [isMathLiveLoaded, setIsMathLiveLoaded] = useState(false)
+    const [isMathKeyboardVisible, setIsMathKeyboardVisible] = useState(false)
+    const [activeMathInput, setActiveMathInput] = useState<"question" | "answer">("question")
+    const questionMathFieldRef = useRef<MathfieldElement | null>(null)
+    const answerMathFieldRef = useRef<MathfieldElement | null>(null)
 
-    const resetQuestionForm = (questionType: "text" | "option" = "text") => {
+    const resetQuestionForm = (questionType: QuestionType = "text") => {
         setQuestionForm({
             question: "",
             questionType,
             answer: "",
             optionsCount: 4,
             options: ["", "", "", ""],
+            imageSrc: "",
         })
+        setActiveMathInput("question")
     }
 
     const fetchExams = async () => {
@@ -85,6 +120,104 @@ export default function ExamsPage() {
             setOrigin(window.location.origin)
         }
     }, [])
+
+    const existingQuestionCount = activeExam?.questions?.length || 0
+    const isNewQuestionSlot = showQuestionModal && viewIndex === existingQuestionCount + stagedQuestions.length
+    const isFormulaType = questionForm.questionType === "formula"
+
+    const getMathKeyboard = () =>
+        (window as Window & { mathVirtualKeyboard?: MathVirtualKeyboard }).mathVirtualKeyboard
+
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+        const field = questionMathFieldRef.current
+        if (!field) return
+        if (field.value !== questionForm.question) {
+            field.value = questionForm.question
+        }
+    }, [isMathLiveLoaded, questionForm.question])
+
+    useEffect(() => {
+        if (!isMathLiveLoaded || !isFormulaType) return
+        const field = answerMathFieldRef.current
+        if (!field) return
+        if (field.value !== questionForm.answer) {
+            field.value = questionForm.answer
+        }
+    }, [isMathLiveLoaded, isFormulaType, questionForm.answer])
+
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+        const keyboard = getMathKeyboard()
+        if (!keyboard) return
+
+        if (!isNewQuestionSlot) {
+            keyboard.hide()
+            setIsMathKeyboardVisible(false)
+            return
+        }
+
+        setIsMathKeyboardVisible(true)
+        questionMathFieldRef.current?.focus()
+    }, [isMathLiveLoaded, isNewQuestionSlot])
+
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+        const keyboard = getMathKeyboard()
+        if (!keyboard) return
+        if (!isNewQuestionSlot) return
+
+        keyboard.layouts = isFormulaType ? FORMULA_KEYBOARD_LAYOUTS : ["default"]
+        if (isMathKeyboardVisible) {
+            keyboard.show()
+        } else {
+            keyboard.hide()
+        }
+    }, [isMathLiveLoaded, isNewQuestionSlot, isFormulaType, isMathKeyboardVisible])
+
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+
+        const keyboard = getMathKeyboard()
+        if (!keyboard) return
+
+        return () => keyboard.hide()
+    }, [isMathLiveLoaded])
+
+    const toggleMathKeyboard = () => {
+        setIsMathKeyboardVisible((prev) => {
+            const next = !prev
+            if (next) {
+                if (activeMathInput === "answer") {
+                    answerMathFieldRef.current?.focus()
+                } else {
+                    questionMathFieldRef.current?.focus()
+                }
+            }
+            return next
+        })
+    }
+
+    const insertFormulaSnippet = (latex: string) => {
+        const targetField =
+            activeMathInput === "answer" ? answerMathFieldRef.current : questionMathFieldRef.current
+        if (!targetField) return
+
+        if (typeof targetField.insert === "function") {
+            targetField.insert(latex)
+        } else {
+            targetField.value = `${targetField.value ?? ""}${latex}`
+        }
+
+        const nextValue = targetField.value ?? ""
+        if (activeMathInput === "answer") {
+            setQuestionForm((prev) => ({ ...prev, answer: nextValue }))
+        } else {
+            setQuestionForm((prev) => ({ ...prev, question: nextValue }))
+        }
+
+        targetField.focus()
+    }
 
     const getExamUrl = (examId: string) => {
         const path = `/exam/${examId}`
@@ -183,16 +316,18 @@ export default function ExamsPage() {
     const buildQuestionFromForm = (): Question | null => {
         const trimmedQuestion = questionForm.question.trim()
         const trimmedAnswer = questionForm.answer.trim()
-        const trimmedOptions =
-            questionForm.questionType === "option"
-                ? questionForm.options.map((option) => option.trim()).filter(Boolean)
-                : undefined
+        const trimmedImageSrc = questionForm.imageSrc.trim()
+
+        let trimmedOptions: string[] | undefined
+        if (questionForm.questionType === "option" || questionForm.questionType === "multi_select") {
+            trimmedOptions = questionForm.options.map((option) => option.trim()).filter(Boolean)
+        }
 
         if (!trimmedQuestion || !trimmedAnswer) {
             return null
         }
 
-        if (questionForm.questionType === "option" && (!trimmedOptions || trimmedOptions.length < 2)) {
+        if ((questionForm.questionType === "option" || questionForm.questionType === "multi_select") && (!trimmedOptions || trimmedOptions.length < 2)) {
             return null
         }
 
@@ -200,7 +335,8 @@ export default function ExamsPage() {
             question: trimmedQuestion,
             questionType: questionForm.questionType,
             answer: trimmedAnswer,
-            options: questionForm.questionType === "option" ? trimmedOptions : undefined,
+            options: trimmedOptions,
+            imageSrc: trimmedImageSrc || undefined,
         }
     }
 
@@ -246,8 +382,7 @@ export default function ExamsPage() {
         setStagedQuestions((prev) => prev.filter((_, idx) => idx !== index))
     }
 
-    const handleSaveQuestions = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const handleSaveQuestions = async () => {
         if (!activeExam) return
         if (stagedQuestions.length === 0) return
 
@@ -611,13 +746,75 @@ export default function ExamsPage() {
                                                         {isNew ? (
                                                             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                                                 <div className="space-y-4">
-                                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Question Content</label>
-                                                                    <textarea
-                                                                        value={questionForm.question}
-                                                                        onChange={(e) => setQuestionForm(p => ({ ...p, question: e.target.value }))}
-                                                                        rows={5}
-                                                                        className="w-full px-8 py-6 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all text-xl leading-relaxed shadow-inner"
-                                                                        placeholder="Enter the question text here..."
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Question Content</label>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={toggleMathKeyboard}
+                                                                            className={`
+                                                                                h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                                                                                ${isMathKeyboardVisible
+                                                                                    ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/20"
+                                                                                    : "bg-white dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                                                }
+                                                                            `}
+                                                                            title="Toggle Math Keyboard"
+                                                                        >
+                                                                            Keyboard
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="relative group">
+                                                                        {isMathLiveLoaded ? (
+                                                                            <math-field
+                                                                                ref={questionMathFieldRef}
+                                                                                default-mode={isFormulaType ? "math" : "text"}
+                                                                                smart-mode
+                                                                                multiline
+                                                                                placeholder="Enter the question text here..."
+                                                                                onFocus={() => {
+                                                                                    setActiveMathInput("question")
+                                                                                    setIsMathKeyboardVisible(true)
+                                                                                }}
+                                                                                onInput={(event) => {
+                                                                                    const target = event.target as MathfieldElement
+                                                                                    setQuestionForm((prev) => ({ ...prev, question: target.value ?? "" }))
+                                                                                }}
+                                                                                className="block w-full min-h-[12rem] px-8 py-6 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all text-xl leading-relaxed shadow-inner"
+                                                                            />
+                                                                        ) : (
+                                                                            <textarea
+                                                                                value={questionForm.question}
+                                                                                onChange={(e) => setQuestionForm((p) => ({ ...p, question: e.target.value }))}
+                                                                                rows={5}
+                                                                                className="w-full px-8 py-6 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all text-xl leading-relaxed shadow-inner"
+                                                                                placeholder="Enter the question text here..."
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                    {isFormulaType && isMathLiveLoaded && (
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            {FORMULA_INSERT_SNIPPETS.map((snippet) => (
+                                                                                <button
+                                                                                    key={snippet.label}
+                                                                                    type="button"
+                                                                                    onClick={() => insertFormulaSnippet(snippet.latex)}
+                                                                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                                                >
+                                                                                    {snippet.label}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-4">
+                                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Image URL (Optional)</label>
+                                                                    <input
+                                                                        type="url"
+                                                                        value={questionForm.imageSrc}
+                                                                        onChange={(e) => setQuestionForm(p => ({ ...p, imageSrc: e.target.value }))}
+                                                                        className="w-full px-6 py-4 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all font-medium"
+                                                                        placeholder="https://example.com/image.png"
                                                                     />
                                                                 </div>
 
@@ -626,26 +823,51 @@ export default function ExamsPage() {
                                                                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Type</label>
                                                                         <select
                                                                             value={questionForm.questionType}
-                                                                            onChange={(e) => setQuestionForm(p => ({ ...p, questionType: e.target.value as "text" | "option" }))}
+                                                                            onChange={(e) =>
+                                                                                setQuestionForm((p) => ({
+                                                                                    ...p,
+                                                                                    questionType: e.target.value as QuestionType,
+                                                                                }))
+                                                                            }
                                                                             className="w-full px-6 py-5 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all appearance-none cursor-pointer font-bold"
                                                                         >
                                                                             <option value="text">Subjective (Text)</option>
+                                                                            <option value="formula">Formula</option>
                                                                             <option value="option">Multiple Choice</option>
+                                                                            <option value="multi_select">Multi-Select</option>
                                                                         </select>
                                                                     </div>
                                                                     <div className="space-y-4">
                                                                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Key Solution</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={questionForm.answer}
-                                                                            onChange={(e) => setQuestionForm(p => ({ ...p, answer: e.target.value }))}
-                                                                            className="w-full px-6 py-5 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all font-bold"
-                                                                            placeholder="Correct answer"
-                                                                        />
+                                                                        {isFormulaType && isMathLiveLoaded ? (
+                                                                            <math-field
+                                                                                ref={answerMathFieldRef}
+                                                                                default-mode="math"
+                                                                                smart-mode
+                                                                                placeholder="Correct formula answer"
+                                                                                onFocus={() => {
+                                                                                    setActiveMathInput("answer")
+                                                                                    setIsMathKeyboardVisible(true)
+                                                                                }}
+                                                                                onInput={(event) => {
+                                                                                    const target = event.target as MathfieldElement
+                                                                                    setQuestionForm((prev) => ({ ...prev, answer: target.value ?? "" }))
+                                                                                }}
+                                                                                className="block w-full min-h-[56px] px-6 py-4 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all font-bold"
+                                                                            />
+                                                                        ) : (
+                                                                            <input
+                                                                                type="text"
+                                                                                value={questionForm.answer}
+                                                                                onChange={(e) => setQuestionForm(p => ({ ...p, answer: e.target.value }))}
+                                                                                className="w-full px-6 py-5 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all font-bold"
+                                                                                placeholder="Correct answer"
+                                                                            />
+                                                                        )}
                                                                     </div>
                                                                 </div>
 
-                                                                {questionForm.questionType === "option" && (
+                                                                {(questionForm.questionType === "option" || questionForm.questionType === "multi_select") && (
                                                                     <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                                                                         <div className="flex items-center justify-between px-2">
                                                                             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Multiple Choice Options</label>
@@ -686,6 +908,11 @@ export default function ExamsPage() {
                                                                         <p className="text-3xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight italic">
                                                                             &quot;{currentQuestion?.question}&quot;
                                                                         </p>
+                                                                        {currentQuestion?.imageSrc && (
+                                                                            <div className="mt-6 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                                                                                <img src={currentQuestion.imageSrc} alt="Question" className="w-full h-auto max-h-64 object-contain bg-zinc-100 dark:bg-zinc-900" />
+                                                                            </div>
+                                                                        )}
                                                                     </div>
 
                                                                     <div className="grid sm:grid-cols-2 gap-10">
@@ -773,25 +1000,23 @@ export default function ExamsPage() {
                                                             type="button"
                                                             onClick={handleNext}
                                                             disabled={isAnimating}
-                                                            className="h-12 px-8 bg-white text-black font-black rounded-2xl hover:scale-105 active:scale-95 transition-all text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-2xl"
+                                                            className="h-12 px-8 bg-zinc-900 dark:bg-zinc-800 text-white font-black rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-all text-[10px] uppercase tracking-widest border border-zinc-800 dark:border-zinc-700 shadow-xl"
                                                         >
                                                             Next Question
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                                        </button>
-                                                    )
-                                                } else {
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleNext}
-                                                            disabled={!isQuestionValid || isAnimating}
-                                                            className="h-12 px-8 bg-green-500 text-black font-black rounded-2xl hover:bg-green-400 hover:scale-105 active:scale-95 shadow-xl shadow-green-500/20 transition-all text-[10px] uppercase tracking-widest flex items-center gap-3 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:shadow-none"
-                                                        >
-                                                            Commit Question
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
                                                         </button>
                                                     )
                                                 }
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleNext}
+                                                        disabled={!isQuestionValid || isAnimating}
+                                                        className="h-12 px-8 bg-green-600 hover:bg-green-500 text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-green-500/20 active:scale-95 disabled:bg-zinc-400 disabled:dark:bg-zinc-700 disabled:text-zinc-200 disabled:shadow-none"
+                                                    >
+                                                        Save To Draft
+                                                    </button>
+                                                )
                                             })()}
                                         </div>
                                     </div>
@@ -801,6 +1026,10 @@ export default function ExamsPage() {
                     </div>
                 </div>
             )}
+            <Script
+                src="https://unpkg.com/mathlive@0.108.3/mathlive.min.js"
+                onLoad={() => setIsMathLiveLoaded(true)}
+            />
         </div>
     )
 }

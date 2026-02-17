@@ -2,11 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
+import Script from "next/script"
 
 type ExamQuestion = {
     question: string
-    questionType: "text" | "option"
+    questionType: "text" | "option" | "multi_select" | "formula"
     options: string[]
+    imageSrc?: string
 }
 
 type AttemptStatus = "pending" | "completed"
@@ -64,6 +66,11 @@ type FullscreenRecoveryState = {
     message: string
 } | null
 
+type MathfieldElement = HTMLElement & {
+    value: string
+    focus: () => void
+}
+
 type WarningEvent = {
     reason: string
     message: string
@@ -102,17 +109,22 @@ export default function ExamAccessPage() {
     const [violationMsg, setViolationMsg] = useState("")
     const [warnings, setWarnings] = useState<WarningEvent[]>([])
     const [attempt, setAttempt] = useState<AttemptInfo | null>(null)
+    const [isMathLiveLoaded, setIsMathLiveLoaded] = useState(false)
     const lastViolationRef = useRef<{ reason: string; at: number }>({ reason: "", at: 0 })
     const isReEnteringFullscreenRef = useRef(false)
     const escapePressRef = useRef<EscapePressState>(createInitialEscapePressState())
     const fullscreenRecoveryRef = useRef<FullscreenRecoveryState>(null)
     const fullscreenRetryTimerRef = useRef<number | null>(null)
     const progressSaveTimerRef = useRef<number | null>(null)
+    const mathFieldRef = useRef<MathfieldElement | null>(null)
 
     const totalSeconds = useMemo(() => (accessData ? accessData.exam.duration * 60 : null), [accessData])
     const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
     const totalQuestions = accessData?.questions.length ?? 0
     const progressPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0
+    const currentQuestion = accessData?.questions[currentIndex]
+    const isLongAnswerQuestion =
+        currentQuestion?.questionType === "text" || currentQuestion?.questionType === "formula"
 
     const buildAnswerEntries = (answerState: Record<number, string>) =>
         Object.entries(answerState).map(([questionIndex, answer]) => ({
@@ -598,8 +610,55 @@ export default function ExamAccessPage() {
         }
     }, [phase, accessData, submitting, answers, currentIndex, warnings])
 
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+        if (phase !== "exam") return
+        if (!isLongAnswerQuestion) return
+
+        const field = mathFieldRef.current
+        if (!field) return
+        const nextValue = answers[currentIndex] ?? ""
+        if (field.value !== nextValue) {
+            field.value = nextValue
+        }
+        field.focus()
+    }, [isMathLiveLoaded, phase, currentIndex, isLongAnswerQuestion, answers])
+
+    useEffect(() => {
+        if (!isMathLiveLoaded) return
+        const keyboard = (window as Window & { mathVirtualKeyboard?: { show: () => void; hide: () => void } })
+            .mathVirtualKeyboard
+        if (!keyboard) return
+
+        if (phase === "exam" && isLongAnswerQuestion) {
+            keyboard.show()
+        } else {
+            keyboard.hide()
+        }
+
+        return () => keyboard.hide()
+    }, [isMathLiveLoaded, phase, isLongAnswerQuestion])
+
     const handleAnswerChange = (index: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [index]: value }))
+    }
+
+    const handleMultiSelectChange = (index: number, value: string) => {
+        setAnswers((prev) => {
+            const currentStr = prev[index] || "[]"
+            let current: string[] = []
+            try {
+                current = JSON.parse(currentStr)
+                if (!Array.isArray(current)) current = []
+            } catch {
+                current = []
+            }
+
+            const next = current.includes(value)
+                ? current.filter((v) => v !== value)
+                : [...current, value]
+            return { ...prev, [index]: JSON.stringify(next) }
+        })
     }
 
     const handleSubmitAnswers = async () => {
@@ -663,7 +722,6 @@ export default function ExamAccessPage() {
     }
 
     const questionCount = accessData?.questions.length ?? 0
-    const currentQuestion = accessData?.questions[currentIndex]
     const isLastQuestion = questionCount > 0 && currentIndex === questionCount - 1
     const resumeRemainingSeconds =
         attempt?.status === "pending" && totalSeconds
@@ -977,6 +1035,15 @@ export default function ExamAccessPage() {
                                         <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight italic">
                                             {currentQuestion?.question}
                                         </h2>
+                                        {currentQuestion?.imageSrc && (
+                                            <div className="pt-8">
+                                                <img
+                                                    src={currentQuestion.imageSrc}
+                                                    alt="Question Reference"
+                                                    className="rounded-[2rem] border-2 border-white/5 max-h-[400px] object-contain bg-zinc-900/50"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1011,17 +1078,67 @@ export default function ExamAccessPage() {
                                                 )
                                             })}
                                         </div>
+                                    ) : currentQuestion?.questionType === "multi_select" && currentQuestion.options.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {currentQuestion.options.map((option, idx) => {
+                                                const value = String.fromCharCode(65 + idx)
+                                                let selectedArray: string[] = []
+                                                try {
+                                                    selectedArray = JSON.parse(answers[currentIndex] || "[]")
+                                                } catch { selectedArray = [] }
+                                                const isSelected = selectedArray.includes(value)
+
+                                                return (
+                                                    <button
+                                                        key={`${option}-${idx}`}
+                                                        onClick={() => handleMultiSelectChange(currentIndex, value)}
+                                                        className={`
+                                                            group flex items-center gap-6 p-6 rounded-[2rem] border-2 text-left transition-all duration-300
+                                                            ${isSelected ? 'bg-green-600/10 border-green-600/50 shadow-[0_20px_40px_-10px_rgba(34,197,94,0.2)]' :
+                                                                'bg-zinc-900/40 border-white/5 hover:border-white/10 hover:bg-zinc-800/50'}
+                                                        `}
+                                                    >
+                                                        <div className={`
+                                                            h-12 w-12 shrink-0 rounded-lg flex items-center justify-center text-lg font-black transition-all
+                                                            ${isSelected ? 'bg-green-600 text-white shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-zinc-950 text-zinc-600 group-hover:text-zinc-400'}
+                                                        `}>
+                                                            {isSelected ? "✓" : value}
+                                                        </div>
+                                                        <span className={`text-xl font-bold transition-colors ${isSelected ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`}>
+                                                            {option}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     ) : (
                                         <div className="space-y-4">
-                                            <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2 italic">Detailed Analysis Response</div>
+                                            <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2 italic">
+                                                Detailed Analysis Response
+                                            </div>
                                             <div className="relative group">
                                                 <div className="absolute inset-0 bg-blue-500/5 blur-2xl rounded-[3rem] opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                                                <textarea
-                                                    value={answers[currentIndex] ?? ""}
-                                                    onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
-                                                    placeholder="Synthesize your response here..."
-                                                    className="w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
-                                                />
+                                                {isMathLiveLoaded && isLongAnswerQuestion ? (
+                                                    <math-field
+                                                        ref={mathFieldRef}
+                                                        default-mode={currentQuestion?.questionType === "formula" ? "math" : "text"}
+                                                        smart-mode
+                                                        multiline
+                                                        placeholder="Synthesize your response here..."
+                                                        onInput={(event) => {
+                                                            const target = event.target as MathfieldElement
+                                                            handleAnswerChange(currentIndex, target.value ?? "")
+                                                        }}
+                                                        className="block w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
+                                                    />
+                                                ) : (
+                                                    <textarea
+                                                        value={answers[currentIndex] ?? ""}
+                                                        onChange={(e) => handleAnswerChange(currentIndex, e.target.value)}
+                                                        placeholder="Synthesize your response here..."
+                                                        className="w-full relative z-10 min-h-[300px] px-10 py-8 bg-zinc-900/60 backdrop-blur-3xl border-2 border-white/5 rounded-[3rem] text-2xl font-medium text-white placeholder-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all leading-relaxed italic shadow-inner selection:bg-blue-600"
+                                                    />
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -1074,6 +1191,10 @@ export default function ExamAccessPage() {
                     </main>
                 </div>
             )}
+            <Script
+                src="https://unpkg.com/mathlive@0.108.3/mathlive.min.js"
+                onLoad={() => setIsMathLiveLoaded(true)}
+            />
         </div>
     )
 }

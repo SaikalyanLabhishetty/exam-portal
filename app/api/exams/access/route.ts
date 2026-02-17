@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
                 question: question.question,
                 questionType: question.questionType,
                 options: question.options ?? [],
+                imageSrc: question.imageSrc,
             })),
             attempt,
         })
