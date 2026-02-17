@@ -194,11 +194,7 @@ export default function ExamAccessPage() {
             if (nextAttempt?.status === "pending") {
                 const questionTotal = data.questions?.length ?? 0
                 const savedAnswers = toAnswerMap(nextAttempt.answers ?? [])
-                const savedWarnings = Array.isArray(nextAttempt.warnings) ? nextAttempt.warnings : []
                 setAnswers(savedAnswers)
-                setWarnings(savedWarnings)
-                setViolationCount(savedWarnings.length)
-                setViolationMsg(savedWarnings[savedWarnings.length - 1]?.message ?? "")
                 const nextIndex =
                     typeof nextAttempt.currentIndex === "number"
                         ? Math.min(Math.max(nextAttempt.currentIndex, 0), Math.max(questionTotal - 1, 0))
@@ -206,9 +202,6 @@ export default function ExamAccessPage() {
                 setCurrentIndex(nextIndex)
             } else {
                 setAnswers({})
-                setWarnings([])
-                setViolationCount(0)
-                setViolationMsg("")
                 setCurrentIndex(0)
             }
             setPhase("overview")
@@ -312,12 +305,9 @@ export default function ExamAccessPage() {
             return
         }
 
-        const resumedWarnings = attempt?.status === "pending" && Array.isArray(attempt.warnings)
-            ? attempt.warnings
-            : []
-        setWarnings(resumedWarnings)
-        setViolationCount(resumedWarnings.length)
-        setViolationMsg(resumedWarnings[resumedWarnings.length - 1]?.message ?? "")
+        setViolationCount(0)
+        setViolationMsg("")
+        setWarnings([])
         lastViolationRef.current = { reason: "", at: 0 }
         escapePressRef.current = createInitialEscapePressState()
         fullscreenRecoveryRef.current = null
@@ -345,7 +335,6 @@ export default function ExamAccessPage() {
             status: "pending",
             startedAt: startedAt,
             answers: prev?.answers ?? [],
-            warnings: prev?.warnings ?? resumedWarnings,
             currentIndex: nextIndex,
             remainingSeconds: null,
         }))
@@ -790,7 +779,14 @@ export default function ExamAccessPage() {
         focusLossConfirmationRef.current = false
 
         if (activeModal.mode === "focus-loss-submit") {
+            const warningEvent: WarningEvent = {
+                reason: activeModal.reason || "focus-loss-submit",
+                message: activeModal.message,
+                at: new Date().toISOString(),
+            }
+
             void handleSubmitAnswers({
+                warningEvent,
                 successMessage: "Exam submitted after app switch confirmation.",
             })
             return
@@ -994,18 +990,6 @@ export default function ExamAccessPage() {
                                         {submitMsg}
                                     </p>
                                 )}
-                            </div>
-                            <div className="pt-4 flex flex-col gap-4">
-                                <div className="px-6 py-4 bg-zinc-950/50 rounded-2xl border border-zinc-800 flex justify-between items-center">
-                                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Confirmation ID</span>
-                                    <span className="text-xs font-mono text-zinc-400">#{(Math.random() * 1000000).toFixed(0)}</span>
-                                </div>
-                                <button
-                                    onClick={() => window.close()}
-                                    className="w-full py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest hover:text-white transition-colors"
-                                >
-                                    Terminate Session
-                                </button>
                             </div>
                         </div>
                     )}
