@@ -151,7 +151,7 @@ export default function ExamsPage() {
         const keyboard = getMathKeyboard()
         if (!keyboard) return
 
-        if (!isNewQuestionSlot) {
+        if (!isNewQuestionSlot || !isFormulaType) {
             keyboard.hide()
             setIsMathKeyboardVisible(false)
             return
@@ -159,15 +159,18 @@ export default function ExamsPage() {
 
         setIsMathKeyboardVisible(true)
         questionMathFieldRef.current?.focus()
-    }, [isMathLiveLoaded, isNewQuestionSlot])
+    }, [isMathLiveLoaded, isNewQuestionSlot, isFormulaType])
 
     useEffect(() => {
         if (!isMathLiveLoaded) return
         const keyboard = getMathKeyboard()
         if (!keyboard) return
-        if (!isNewQuestionSlot) return
+        if (!isNewQuestionSlot || !isFormulaType) {
+            keyboard.hide()
+            return
+        }
 
-        keyboard.layouts = isFormulaType ? FORMULA_KEYBOARD_LAYOUTS : ["default"]
+        keyboard.layouts = FORMULA_KEYBOARD_LAYOUTS
         if (isMathKeyboardVisible) {
             keyboard.show()
         } else {
@@ -185,6 +188,7 @@ export default function ExamsPage() {
     }, [isMathLiveLoaded])
 
     const toggleMathKeyboard = () => {
+        if (!isFormulaType) return
         setIsMathKeyboardVisible((prev) => {
             const next = !prev
             if (next) {
@@ -748,26 +752,28 @@ export default function ExamsPage() {
                                                                 <div className="space-y-4">
                                                                     <div className="flex items-center justify-between gap-3">
                                                                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2">Question Content</label>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={toggleMathKeyboard}
-                                                                            className={`
-                                                                                h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
-                                                                                ${isMathKeyboardVisible
-                                                                                    ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/20"
-                                                                                    : "bg-white dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                                                                }
-                                                                            `}
-                                                                            title="Toggle Math Keyboard"
-                                                                        >
-                                                                            Keyboard
-                                                                        </button>
+                                                                        {isFormulaType && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={toggleMathKeyboard}
+                                                                                className={`
+                                                                                    h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                                                                                    ${isMathKeyboardVisible
+                                                                                        ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/20"
+                                                                                        : "bg-white dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                                                    }
+                                                                                `}
+                                                                                title="Toggle Math Keyboard"
+                                                                            >
+                                                                                Keyboard
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                     <div className="relative group">
-                                                                        {isMathLiveLoaded ? (
+                                                                        {isFormulaType && isMathLiveLoaded ? (
                                                                             <math-field
                                                                                 ref={questionMathFieldRef}
-                                                                                default-mode={isFormulaType ? "math" : "text"}
+                                                                                default-mode="math"
                                                                                 smart-mode
                                                                                 multiline
                                                                                 placeholder="Enter the question text here..."
